@@ -1,29 +1,40 @@
-# $@ = target file
-# $< = first dependency
-# $^ = all dependencies
+C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
+HEADERS = $(wildcard kernel/*.h drivers/*.h)
+# Nice syntax for file extension replacement
+OBJ = ${C_SOURCES:.c=.o}
 
-# First rule is the one executed when no parameters are fed to the Makefile
-all: build/os-image.bin
+# Change this if your cross-compiler is somewhere else
+CC = /usr/local/i386elfgcc/bin/i386-elf-gcc
+GDB = /usr/local/i386elfgcc/bin/i386-elf-gdb
+# -g: Use debugging symbols in gcc
+CFLAGS = -g
 
-# Notice how dependencies are built as needed
-build/kernel.bin: build/kernel_entry.o build/kernel.o
+run: os-image.bin kernel.elf
+
+# First rule is run by default
+os-image.bin: boot/bootsect.bin kernel.bin
+	cat $^ > os-image.bin
+
+# '--oformat binary' deletes all symbols as a collateral, so we don't need
+# to 'strip' them manually on this case
+kernel.bin: boot/kernel_entry.o ${OBJ}
 	i386-elf-ld -o $@ -Ttext 0x1000 $^ --oformat binary
 
-build/kernel_entry.o: src/kernel_entry.asm
+# Used for debugging purposes
+kernel.elf: boot/kernel_entry.o ${OBJ}
+	i386-elf-ld -o $@ -Ttext 0x1000 $^ 
+
+# Generic rules for wildcards
+# To make an object, always compile from its .c
+%.o: %.c ${HEADERS}
+	${CC} ${CFLAGS} -ffreestanding -c $< -o $@
+
+%.o: %.asm
 	nasm $< -f elf -o $@
 
-build/kernel.o: src/kernel.c
-	i386-elf-gcc -ffreestanding -c $< -o $@
-
-# Rule to disassemble the kernel - may be useful to debug
-build/kernel.dis: build/kernel.bin
-	ndisasm -b 32 $< > build/$@
-
-build/bootsect.bin: src/bootsect.asm
+%.bin: %.asm
 	nasm $< -f bin -o $@
 
-build/os-image.bin: build/bootsect.bin build/kernel.bin
-	cat $^ > $@
-
 clean:
-	rm *.bin *.o *.dis
+	rm -rf *.bin *.dis *.o os-image.bin *.elf
+	rm -rf kernel/*.o boot/*.bin drivers/*.o boot/*.o

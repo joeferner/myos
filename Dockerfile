@@ -7,9 +7,6 @@ RUN apt-get install -y curl build-essential libgmp3-dev libmpfr-dev libmpfr-doc 
 RUN apt-get install -y qemu-system nasm
 
 # 11-kernel-crosscompiler
-# ENV PREFIX="/usr/local/i386elfgcc"
-# ENV TARGET=i386-elf
-# ENV PATH="$PREFIX/bin:$PATH"
 
 ## binutils
 RUN \
@@ -37,6 +34,20 @@ RUN \
   && cd .. \
   && rm -rf gcc-13.4.0 gcc-13.4.0.tar.gz gcc-build
 
-  WORKDIR /app
-  ENV PATH=${PATH}:/usr/local/i386elfgcc/bin/
-  
+# 14-checkpoint
+
+## gdb
+RUN \
+  curl -O http://ftp.rediris.es/mirror/GNU/gdb/gdb-16.3.tar.gz \
+  && tar xzf gdb-16.3.tar.gz \
+  && mkdir gdb-build \
+  && cd gdb-build \
+  && ../gdb-16.3/configure --target=i386-elf --prefix=/usr/local/i386elfgcc --program-prefix=i386-elf- \
+  && make \
+  && make install \
+  && cd .. \
+  && rm -rf gdb-16.3 gdb-16.3.tar.gz gdb-build
+
+WORKDIR /app
+ENV PATH=${PATH}:/usr/local/i386elfgcc/bin/
+

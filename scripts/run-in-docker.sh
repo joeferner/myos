@@ -6,5 +6,6 @@ cd "${SCRIPT_DIR}/.."
 docker run --rm -it \
   -v "$(pwd):/app" \
   -u $(id -u ${USER}):$(id -g ${USER}) \
+  --net=host \
   os-from-scratch \
   "$@"
