@@ -3,6 +3,4 @@ set -e
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 cd "${SCRIPT_DIR}/.."
 
-./scripts/run-in-docker.sh make
-
-qemu-system-x86_64 -fda os-image.bin
+qemu-system-i386 -cdrom build/myos.iso

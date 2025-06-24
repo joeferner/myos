@@ -1,0 +1,55 @@
+FROM ubuntu:24.04
+
+# see https://wiki.osdev.org/GCC_Cross-Compiler
+RUN apt-get update
+RUN apt-get install -y build-essential curl bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo libisl-dev qemu-system
+
+ENV TARGET=i686-elf
+ENV PREFIX="/opt/${TARGET}"
+ENV PATH="${PREFIX}/bin:${PATH}"
+
+# binutils
+RUN \
+  curl -O https://ftp.gnu.org/gnu/binutils/binutils-2.44.tar.gz \
+  && tar xzf binutils-2.44.tar.gz \
+  && mkdir binutils-build \
+  && cd binutils-build \
+  && ../binutils-2.44/configure --target="${TARGET}" --prefix="${PREFIX}" --with-sysroot --disable-nls --disable-werror \
+  && make all \
+  && make install \
+  && cd .. \
+  && rm -rf binutils-2.44 binutils-2.44.tar.gz binutils-build
+
+# gdb
+RUN \
+  curl -O http://ftp.rediris.es/mirror/GNU/gdb/gdb-16.3.tar.gz \
+  && tar xzf gdb-16.3.tar.gz \
+  && mkdir gdb-build \
+  && cd gdb-build \
+  && ../gdb-16.3/configure --target="${TARGET}" --prefix="${PREFIX}" --disable-werror \
+  && make -j 8 \
+  && make install \
+  && cd .. \
+  && rm -rf gdb-16.3 gdb-16.3.tar.gz gdb-build
+
+# gcc
+RUN \
+  curl -O https://ftp.gnu.org/gnu/gcc/gcc-13.4.0/gcc-13.4.0.tar.gz \
+  && tar xzf gcc-13.4.0.tar.gz \
+  && mkdir gcc-build \
+  && cd gcc-build \
+  && ../gcc-13.4.0/configure --target="${TARGET}" --prefix="${PREFIX}" --disable-nls --enable-languages=c,c++ --without-headers --disable-hosted-libstdcxx \
+  && make -j 8 all-gcc \
+  && make -j 8 all-target-libgcc \
+  && make -j 8 all-target-libstdc++-v3 \
+  && make install-gcc \
+  && make install-target-libgcc \
+  && make install-target-libstdc++-v3 \
+  && cd .. \
+  && rm -rf gcc-13.4.0 gcc-13.4.0.tar.gz gcc-build
+
+# grub
+RUN apt-get install -y grub-pc xorriso mtools
+
+WORKDIR /app
+
