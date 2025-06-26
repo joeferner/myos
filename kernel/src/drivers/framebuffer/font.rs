@@ -120,40 +120,11 @@ impl<'a> Font<'a> {
     }
 
     fn find_glyph_unicode_table(unicode_table: &[u8], ch: &[u8]) -> Option<usize> {
-        let mut glyph_idx = 0;
-        let mut ch_idx = 0;
-        let mut unicode_table_it = unicode_table.iter();
-
-        loop {
-            let entry = if let Some(entry) = unicode_table_it.next() {
-                entry
-            } else {
-                return None;
-            };
-
-            if *entry == 0xff {
-                if ch_idx == ch.len() {
-                    return Some(glyph_idx);
-                }
-                glyph_idx += 1;
-                ch_idx = 0;
-            } else if ch_idx < ch.len() && *entry == ch[ch_idx] {
-                ch_idx += 1;
-            } else {
-                // no match, skip this entry
-                loop {
-                    let entry = if let Some(entry) = unicode_table_it.next() {
-                        entry
-                    } else {
-                        return None;
-                    };
-                    if *entry == 0xff {
-                        glyph_idx += 1;
-                        ch_idx = 0;
-                        break;
-                    }
-                }
+        for (glyph_idx, code) in unicode_table.split(|&v| v == 0xff).enumerate() {
+            if code == ch {
+                return Some(glyph_idx);
             }
         }
+        None
     }
 }
