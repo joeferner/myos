@@ -1,8 +1,7 @@
 [package]
-name = "font"
+name = "pc-screen-font"
 version = "0.1.0"
 edition = "2024"
 
-[workspace]
-
 [dependencies]
+paste = "1.0.15"

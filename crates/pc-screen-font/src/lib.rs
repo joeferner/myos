@@ -3,10 +3,23 @@
 // see https://en.wikipedia.org/wiki/PC_Screen_Font
 // see /usr/share/kbd/consolefonts/
 
-#[repr(align(4))]
-pub struct FontData([u8; include_bytes!("default8x16.psfu").len()]);
+#![no_std]
 
-pub const DEFAULT_8X16: &FontData = &FontData(*include_bytes!("default8x16.psfu"));
+#[repr(align(4))]
+pub struct FontData<const N: usize>(pub [u8; N]);
+
+#[macro_export]
+macro_rules! include_font_data {
+    ($variable_name:ident, $source_file_name:expr) => {
+        use ::paste::paste;
+        use ::pc_screen_font::FontData;
+
+        paste! {
+            const [<$variable_name _LEN>]: usize = include_bytes!($source_file_name).len();
+            pub const $variable_name: &FontData<[<$variable_name _LEN>]> = &FontData::<[<$variable_name _LEN>]>(*include_bytes!($source_file_name));
+        }
+    };
+}
 
 const PSF2_FONT_MAGIC: u32 = 0x864ab572;
 
@@ -45,7 +58,7 @@ pub struct Font<'a> {
 }
 
 impl<'a> Font<'a> {
-    pub fn new(data: &'a FontData) -> Self {
+    pub fn new<const N: usize>(data: &'a FontData<N>) -> Self {
         let data = &data.0;
         let header_data = &data[0..core::mem::size_of::<Psf2Header>()];
         let header = unsafe { &(*(header_data.as_ptr() as *const Psf2Header)) };
@@ -81,9 +94,10 @@ impl<'a> Font<'a> {
     where
         F: FnMut(usize, usize, bool),
     {
-        let ch_str = ch.to_string();
-        let ch_utf8_bytes: &[u8] = ch_str.as_bytes();
-        let glyph = self.find_glyph(ch_utf8_bytes);
+        let mut ch_utf8_bytes: [u8; 8] = [0; 8];
+        let encoded_len = ch.encode_utf8(&mut ch_utf8_bytes).len();
+
+        let glyph = self.find_glyph(&ch_utf8_bytes[..encoded_len]);
         if let Some(glyph) = glyph {
             let glyph_offset = glyph * self.glyph_size;
             let glyph_end = glyph_offset + self.glyph_size;

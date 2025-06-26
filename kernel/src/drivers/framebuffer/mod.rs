@@ -1,9 +1,5 @@
 use bootloader_api::info::{FrameBuffer, PixelFormat};
 
-pub mod font;
-
-pub use font::Font;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     pub x: usize,

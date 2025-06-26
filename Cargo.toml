@@ -5,7 +5,7 @@ edition = "2024"
 default-run = "myos"
 
 [workspace]
-members = ["kernel"]
+members = ["kernel", "crates/pc-screen-font"]
 
 [dependencies]
 ovmf-prebuilt = "0.2.3"
