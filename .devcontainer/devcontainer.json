@@ -9,7 +9,8 @@
       "extensions": [
         "streetsidesoftware.code-spell-checker",
         "rust-lang.rust-analyzer",
-        "bierner.markdown-emoji"
+        "bierner.markdown-emoji",
+        "ms-vscode.hexeditor"
       ]
     }
   }
