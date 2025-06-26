@@ -147,7 +147,7 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
-    include_font_data!(DEFAULT_8X16, "./bin/default8x16.psfu");
+    include_font_data!(DEFAULT_8X16, "./bin/Tamsyn8x16b.psf");
 
     fn render_char_to_buffer(font: &Font, ch: char, stride: usize, buffer: &mut [u8]) {
         font.render_char(ch, |x, y, v| {
@@ -166,20 +166,20 @@ mod tests {
         let expected: [u8; 16 * 8] = [
             0, 0, 0, 0, 0, 0, 0, 0, // 0
             0, 0, 0, 0, 0, 0, 0, 0, // 1
-            1, 1, 1, 1, 1, 1, 0, 0, // 2
-            0, 1, 1, 0, 0, 1, 1, 0, // 3
+            0, 0, 0, 0, 0, 0, 0, 0, // 2
+            0, 1, 1, 1, 1, 1, 0, 0, // 3
             0, 1, 1, 0, 0, 1, 1, 0, // 4
             0, 1, 1, 0, 0, 1, 1, 0, // 5
-            0, 1, 1, 1, 1, 1, 0, 0, // 6
-            0, 1, 1, 0, 1, 1, 0, 0, // 7
-            0, 1, 1, 0, 0, 1, 1, 0, // 8
+            0, 1, 1, 0, 0, 1, 1, 0, // 6
+            0, 1, 1, 1, 1, 1, 0, 0, // 7
+            0, 1, 1, 0, 1, 1, 0, 0, // 8
             0, 1, 1, 0, 0, 1, 1, 0, // 9
             0, 1, 1, 0, 0, 1, 1, 0, // 10
-            1, 1, 1, 0, 0, 1, 1, 0, // 11
+            0, 1, 1, 0, 0, 1, 1, 0, // 11
             0, 0, 0, 0, 0, 0, 0, 0, // 12
             0, 0, 0, 0, 0, 0, 0, 0, // 13
             0, 0, 0, 0, 0, 0, 0, 0, // 14
-            0, 0, 0, 0, 0, 0, 0, 0, // 15
+            0, 0, 0, 0, 0, 0, 0, 0  // 15
         ];
         assert_eq!(buffer, expected);
     }
