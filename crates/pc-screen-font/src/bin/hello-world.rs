@@ -1,4 +1,4 @@
-use pc_screen_font::{Font, include_font_data};
+use pc_screen_font::{Font, FontData, include_font_data};
 
 include_font_data!(DEFAULT_8X16, "default8x16.psfu");
 

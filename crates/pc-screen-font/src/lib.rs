@@ -12,7 +12,6 @@ pub struct FontData<const N: usize>(pub [u8; N]);
 macro_rules! include_font_data {
     ($variable_name:ident, $source_file_name:expr) => {
         use ::paste::paste;
-        use ::pc_screen_font::FontData;
 
         paste! {
             const [<$variable_name _LEN>]: usize = include_bytes!($source_file_name).len();
@@ -140,5 +139,48 @@ impl<'a> Font<'a> {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    include_font_data!(DEFAULT_8X16, "./bin/default8x16.psfu");
+
+    fn render_char_to_buffer(font: &Font, ch: char, stride: usize, buffer: &mut [u8]) {
+        font.render_char(ch, |x, y, v| {
+            let offset = y * stride + x;
+            buffer[offset] = if v { 1 } else { 0 };
+        });
+    }
+
+    #[test]
+    fn test_psf2_with_unicode_table() {
+        let mut buffer: [u8; 16 * 8] = [0; 16 * 8];
+        let font = Font::new(DEFAULT_8X16);
+        assert_eq!(font.height, 16);
+        assert_eq!(font.width, 8);
+        render_char_to_buffer(&font, 'R', 8, &mut buffer);
+        let expected: [u8; 16 * 8] = [
+            0, 0, 0, 0, 0, 0, 0, 0, // 0
+            0, 0, 0, 0, 0, 0, 0, 0, // 1
+            1, 1, 1, 1, 1, 1, 0, 0, // 2
+            0, 1, 1, 0, 0, 1, 1, 0, // 3
+            0, 1, 1, 0, 0, 1, 1, 0, // 4
+            0, 1, 1, 0, 0, 1, 1, 0, // 5
+            0, 1, 1, 1, 1, 1, 0, 0, // 6
+            0, 1, 1, 0, 1, 1, 0, 0, // 7
+            0, 1, 1, 0, 0, 1, 1, 0, // 8
+            0, 1, 1, 0, 0, 1, 1, 0, // 9
+            0, 1, 1, 0, 0, 1, 1, 0, // 10
+            1, 1, 1, 0, 0, 1, 1, 0, // 11
+            0, 0, 0, 0, 0, 0, 0, 0, // 12
+            0, 0, 0, 0, 0, 0, 0, 0, // 13
+            0, 0, 0, 0, 0, 0, 0, 0, // 14
+            0, 0, 0, 0, 0, 0, 0, 0, // 15
+        ];
+        assert_eq!(buffer, expected);
     }
 }
