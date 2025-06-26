@@ -1,5 +1,9 @@
 use bootloader_api::info::{FrameBuffer, PixelFormat};
 
+pub mod font;
+
+pub use font::Font;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     pub x: usize,
@@ -73,6 +77,8 @@ impl FrameBufferDriver {
         let pixel_buffer = &mut self.framebuffer.buffer_mut()[byte_offset..];
         FrameBufferDriver::set_pixel_raw(pixel_buffer, info.pixel_format, color);
     }
+
+    pub fn draw_char(&mut self, pos: Position, font: &Font, color: Color) {}
 
     fn set_pixel_raw(pixel_buffer: &mut [u8], pixel_format: PixelFormat, color: Color) {
         match pixel_format {

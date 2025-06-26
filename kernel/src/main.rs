@@ -23,6 +23,10 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         };
         framebuffer.clear(color);
 
+        let pos = framebuffer::Position { x: 0, y: 0 };
+        let font = framebuffer::Font::new(framebuffer::font::DEFAULT_8X16);
+        framebuffer.draw_char(pos, &font, color);
+
         let rect = framebuffer::Rect {
             x: 20,
             y: 100,
