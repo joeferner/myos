@@ -49,6 +49,7 @@ impl<'a> Font<'a> {
         let data = &data.0;
         let header_data = &data[0..core::mem::size_of::<Psf2Header>()];
         let header = unsafe { &(*(header_data.as_ptr() as *const Psf2Header)) };
+        // TODO handle psf1
         if header.magic != PSF2_FONT_MAGIC {
             panic!(
                 "invalid magic, expected 0x{:x} found 0x{:x}",
@@ -113,6 +114,7 @@ impl<'a> Font<'a> {
         if let Some(unicode_table) = &self.unicode_table {
             Font::find_glyph_unicode_table(unicode_table, ch)
         } else {
+            // TODO handle non-unicode fonts
             panic!("unicode_table not present");
         }
     }
@@ -120,31 +122,38 @@ impl<'a> Font<'a> {
     fn find_glyph_unicode_table(unicode_table: &[u8], ch: &[u8]) -> Option<usize> {
         let mut glyph_idx = 0;
         let mut ch_idx = 0;
-        let mut unicode_table_idx = 0;
+        let mut unicode_table_it = unicode_table.iter();
 
-        // TODO change to iterable
-        while unicode_table_idx < unicode_table.len() {
-            let entry = unicode_table[unicode_table_idx];
-            if entry == 0xff {
+        loop {
+            let entry = if let Some(entry) = unicode_table_it.next() {
+                entry
+            } else {
+                return None;
+            };
+
+            if *entry == 0xff {
                 if ch_idx == ch.len() {
                     return Some(glyph_idx);
                 }
                 glyph_idx += 1;
-                unicode_table_idx += 1;
                 ch_idx = 0;
-            } else if ch_idx < ch.len() && entry == ch[ch_idx] {
-                unicode_table_idx += 1;
+            } else if ch_idx < ch.len() && *entry == ch[ch_idx] {
                 ch_idx += 1;
             } else {
                 // no match, skip this entry
-                while unicode_table_idx < unicode_table.len() {
-                    if unicode_table[unicode_table_idx] == 0xff {
+                loop {
+                    let entry = if let Some(entry) = unicode_table_it.next() {
+                        entry
+                    } else {
+                        return None;
+                    };
+                    if *entry == 0xff {
+                        glyph_idx += 1;
+                        ch_idx = 0;
                         break;
                     }
-                    unicode_table_idx += 1;
                 }
             }
         }
-        None
     }
 }
