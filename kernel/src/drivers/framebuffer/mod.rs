@@ -1,4 +1,5 @@
 use bootloader_api::info::{FrameBuffer, PixelFormat};
+use pc_screen_font::Font;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
@@ -74,7 +75,54 @@ impl FrameBufferDriver {
         FrameBufferDriver::set_pixel_raw(pixel_buffer, info.pixel_format, color);
     }
 
-    pub fn draw_char(&mut self, pos: Position, font: &Font, color: Color) {}
+    pub fn draw_str(
+        &mut self,
+        s: &str,
+        position: Position,
+        font: &Font,
+        fg_color: Color,
+        bg_color: Color,
+    ) {
+        let mut x = 0;
+        for ch in s.chars() {
+            self.draw_char(
+                ch,
+                Position {
+                    x: position.x + x,
+                    y: position.y,
+                },
+                font,
+                fg_color,
+                bg_color,
+            );
+            x += font.width;
+        }
+    }
+
+    pub fn draw_char(
+        &mut self,
+        ch: char,
+        position: Position,
+        font: &Font,
+        fg_color: Color,
+        bg_color: Color,
+    ) {
+        let info = self.framebuffer.info();
+        let pixel_buffer = &mut self.framebuffer.buffer_mut();
+        font.render_char(ch, |x, y, v| {
+            let color = if v { fg_color } else { bg_color };
+            let byte_offset = {
+                // use stride to calculate pixel offset of target line
+                let line_offset = (position.y + y) * info.stride;
+                // add x position to get the absolute pixel offset in buffer
+                let pixel_offset = line_offset + (position.x + x);
+                // convert to byte offset
+                pixel_offset * info.bytes_per_pixel
+            };
+            let p = &mut pixel_buffer[byte_offset..];
+            FrameBufferDriver::set_pixel_raw(p, info.pixel_format, color);
+        });
+    }
 
     fn set_pixel_raw(pixel_buffer: &mut [u8], pixel_format: PixelFormat, color: Color) {
         match pixel_format {

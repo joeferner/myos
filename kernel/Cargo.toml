@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bootloader_api = "0.11.10"
+bootloader_api = { workspace = true }
+paste = { workspace = true }
+pc-screen-font = { path = "../crates/pc-screen-font" }
 
 [profile.dev]
 panic = "abort"

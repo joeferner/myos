@@ -11,9 +11,7 @@ pub struct FontData<const N: usize>(pub [u8; N]);
 #[macro_export]
 macro_rules! include_font_data {
     ($variable_name:ident, $source_file_name:expr) => {
-        use ::paste::paste;
-
-        paste! {
+        ::paste::paste! {
             const [<$variable_name _LEN>]: usize = include_bytes!($source_file_name).len();
             pub const $variable_name: &FontData<[<$variable_name _LEN>]> = &FontData::<[<$variable_name _LEN>]>(*include_bytes!($source_file_name));
         }
