@@ -6,12 +6,15 @@ use core::panic::PanicInfo;
 
 use crate::console::Console;
 use framebuffer::FrameBufferDriver;
+use serial_port::serial1_init;
 
 mod console;
 
 bootloader_api::entry_point!(kernel_main);
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
+    unsafe { serial1_init() }.expect("serial1 failed to init");
+
     let framebuffer = boot_info.framebuffer.take();
 
     if let Some(framebuffer) = framebuffer {

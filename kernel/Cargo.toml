@@ -9,6 +9,7 @@ conquer-once = { workspace = true }
 paste = { workspace = true }
 pc-screen-font = { path = "../utils/pc-screen-font" }
 framebuffer = { path = "../drivers/framebuffer" }
+serial-port = { path = "../drivers/serial-port" }
 spin = { workspace = true }
 
 [profile.dev]

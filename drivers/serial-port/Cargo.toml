@@ -1,0 +1,9 @@
+[package]
+name = "serial-port"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+uart_16550 = { workspace = true }
+conquer-once = { workspace = true }
+spin = { workspace = true }

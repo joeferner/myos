@@ -3,6 +3,7 @@ use framebuffer::{Color, Position};
 use conquer_once::{spin::OnceCell, TryInitError};
 use pc_screen_font::{include_font_data, Font, FontData};
 use spin::Mutex;
+use serial_port::serial_write_str;
 
 include_font_data!(DEFAULT_8X16, "./resources/Tamsyn8x16r.psf");
 include_font_data!(DEFAULT_8X16_BOLD, "./resources/Tamsyn8x16b.psf");
@@ -71,6 +72,8 @@ impl<'a> Console<'a> {
 
 impl<'a> core::fmt::Write for Console<'a> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        serial_write_str(s);
+
         for ch in s.chars() {
             match ch {
                 '\n' => {

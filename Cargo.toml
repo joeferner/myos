@@ -5,7 +5,7 @@ edition = "2024"
 default-run = "myos"
 
 [workspace]
-members = [ "common", "drivers/framebuffer","kernel", "utils/pc-screen-font"]
+members = [ "common", "drivers/framebuffer", "drivers/serial-port","kernel", "utils/pc-screen-font"]
 
 [workspace.package]
 edition = "2024"
@@ -16,6 +16,7 @@ paste = "1.0.15"
 bootloader_api = "0.11.10"
 conquer-once = { version = "0.4.0", default-features = false }
 spin = "0.10.0"
+uart_16550 = "0.3.2"
 
 [dependencies]
 ovmf-prebuilt = "0.2.3"
