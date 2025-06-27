@@ -23,7 +23,7 @@ pub struct Color {
 }
 
 pub struct FrameBufferDriver {
-    framebuffer: FrameBuffer,
+    pub framebuffer: FrameBuffer,
 }
 
 impl FrameBufferDriver {
@@ -57,6 +57,7 @@ impl FrameBufferDriver {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_pixel(&mut self, position: Position, color: Color) {
         let info = self.framebuffer.info();
 
@@ -75,6 +76,7 @@ impl FrameBufferDriver {
         FrameBufferDriver::set_pixel_raw(pixel_buffer, info.pixel_format, color);
     }
 
+    #[allow(dead_code)]
     pub fn draw_str(
         &mut self,
         s: &str,

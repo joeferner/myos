@@ -5,8 +5,10 @@ edition = "2024"
 
 [dependencies]
 bootloader_api = { workspace = true }
+conquer-once = { workspace = true }
 paste = { workspace = true }
 pc-screen-font = { path = "../crates/pc-screen-font" }
+spin = { workspace = true }
 
 [profile.dev]
 panic = "abort"
