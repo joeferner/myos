@@ -1,5 +1,5 @@
-use crate::drivers::framebuffer::FrameBufferDriver;
-use crate::framebuffer::{Color, Position};
+use framebuffer::FrameBufferDriver;
+use framebuffer::{Color, Position};
 use conquer_once::{spin::OnceCell, TryInitError};
 use pc_screen_font::{include_font_data, Font, FontData};
 use spin::Mutex;
@@ -62,7 +62,7 @@ impl<'a> Console<'a> {
         self.driver
             .draw_char(ch, pos, &self.font, self.fg_color, self.bg_color);
         self.column += 1;
-        if self.column >= self.driver.framebuffer.info().width / self.font.width {
+        if self.column >= self.driver.get_width() / self.font.width {
             self.column = 0;
             self.row += 1;
         }

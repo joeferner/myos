@@ -133,6 +133,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 
 [[package]]
+name = "common"
+version = "0.1.0"
+dependencies = [
+ "bootloader_api",
+]
+
+[[package]]
 name = "conquer-once"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -256,6 +263,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
+name = "framebuffer"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "pc-screen-font",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -345,6 +360,7 @@ version = "0.1.0"
 dependencies = [
  "bootloader_api",
  "conquer-once",
+ "framebuffer",
  "paste",
  "pc-screen-font",
  "spin",

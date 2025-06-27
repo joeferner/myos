@@ -5,10 +5,9 @@ use bootloader_api::BootInfo;
 use core::panic::PanicInfo;
 
 use crate::console::Console;
-use crate::drivers::framebuffer::{self, FrameBufferDriver};
+use framebuffer::FrameBufferDriver;
 
 mod console;
-mod drivers;
 
 bootloader_api::entry_point!(kernel_main);
 

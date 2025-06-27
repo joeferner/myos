@@ -1,0 +1,8 @@
+[package]
+name = "framebuffer"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+common = { path = "../../common" }
+pc-screen-font = { path = "../../utils/pc-screen-font" }

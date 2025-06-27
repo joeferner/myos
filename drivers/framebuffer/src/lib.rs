@@ -1,4 +1,6 @@
-use bootloader_api::info::{FrameBuffer, PixelFormat};
+#![no_std]
+
+use common::{FrameBuffer, PixelFormat};
 use pc_screen_font::Font;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +25,7 @@ pub struct Color {
 }
 
 pub struct FrameBufferDriver {
-    pub framebuffer: FrameBuffer,
+    framebuffer: FrameBuffer,
 }
 
 impl FrameBufferDriver {
@@ -145,5 +147,13 @@ impl FrameBufferDriver {
             }
             other => panic!("unknown pixel format {other:?}"),
         }
+    }
+
+    pub fn get_width(&self) -> usize {
+        self.framebuffer.info().width
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.framebuffer.info().height
     }
 }
