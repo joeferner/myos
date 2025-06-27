@@ -4,7 +4,6 @@
 
 use conquer_once::{spin::OnceCell, TryInitError};
 use spin::Mutex;
-use core::fmt::Write;
 
 pub const SERIAL1_ADDR: u16 = 0x03f8;
 
@@ -35,23 +34,12 @@ impl<'a> core::fmt::Write for SerialPort {
     }
 }
 
-#[doc(hidden)]
-pub fn _print(args: ::core::fmt::Arguments) {
+pub fn serial_print_args(args: ::core::fmt::Arguments) -> core::fmt::Result {
     use core::fmt::Write;
     if let Ok(serial1) = SERIAL1.try_get() {
-        serial1
-            .lock()
-            .write_fmt(args)
-            .expect("Printing to serial failed");
-    }
-}
-
-pub fn serial_write_str(s: &str) {
-    if let Ok(serial1) = SERIAL1.try_get() {
-        serial1
-            .lock()
-            .write_str(s)
-            .expect("Printing to serial failed");
+        serial1.lock().write_fmt(args)
+    } else {
+        Ok(())
     }
 }
 

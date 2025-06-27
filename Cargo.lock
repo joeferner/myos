@@ -273,7 +273,9 @@ name = "framebuffer"
 version = "0.1.0"
 dependencies = [
  "common",
+ "conquer-once",
  "pc-screen-font",
+ "spin",
 ]
 
 [[package]]
@@ -365,6 +367,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "bootloader_api",
+ "common",
  "conquer-once",
  "framebuffer",
  "paste",

@@ -1,5 +1,7 @@
 #![no_std]
 
+pub mod console;
+
 use common::{FrameBuffer, PixelFormat};
 use pc_screen_font::Font;
 
