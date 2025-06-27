@@ -1,7 +1,14 @@
 #![no_std]
 
+// see https://github.com/rust-osdev/uart_16550/blob/master/src/port.rs
+
 use conquer_once::{spin::OnceCell, TryInitError};
 use spin::Mutex;
+use port::SerialPort;
+use bitflags::bitflags;
+
+pub mod error;
+pub mod port;
 
 pub const SERIAL1_ADDR: u16 = 0x03f8;
 
@@ -14,21 +21,28 @@ pub unsafe fn serial1_init() -> Result<(), TryInitError> {
     })
 }
 
-pub struct SerialPort {
-}
-
-impl SerialPort {
-    pub unsafe fn new(addr: u16) -> Self {
-        // TODO implement me (See https://github.com/rust-osdev/uart_16550/blob/master/src/port.rs)
-        Self {  }
+bitflags! {
+    /// Line status flags
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct LineStsFlags: u8 {
+        const INPUT_FULL = 1;
+        // 1 to 4 unknown
+        const OUTPUT_EMPTY = 1 << 5;
+        // 6 and 7 unknown
     }
 }
 
-impl<'a> core::fmt::Write for SerialPort {
-    fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        // TODO implement me
-        Ok(())
-    }
+#[macro_export]
+macro_rules! retry_until_ok {
+    ($cond:expr) => {
+        loop {
+            if let Ok(ok) = $cond {
+                break ok;
+            }
+            core::hint::spin_loop();
+        }
+    };
 }
 
 pub fn serial_print_args(args: ::core::fmt::Arguments) -> core::fmt::Result {

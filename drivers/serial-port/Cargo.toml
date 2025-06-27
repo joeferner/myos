@@ -4,5 +4,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+bitflags = "2.9.1"
 conquer-once = { workspace = true }
 spin = { workspace = true }
+x86 = { workspace = true }
