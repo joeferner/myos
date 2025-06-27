@@ -7,7 +7,7 @@ edition = "2024"
 bootloader_api = { workspace = true }
 conquer-once = { workspace = true }
 paste = { workspace = true }
-pc-screen-font = { path = "../crates/pc-screen-font" }
+pc-screen-font = { path = "../utils/pc-screen-font" }
 spin = { workspace = true }
 
 [profile.dev]

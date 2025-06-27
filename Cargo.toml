@@ -5,7 +5,7 @@ edition = "2024"
 default-run = "myos"
 
 [workspace]
-members = ["kernel", "crates/pc-screen-font"]
+members = ["kernel", "utils/pc-screen-font"]
 
 [workspace.package]
 edition = "2024"
