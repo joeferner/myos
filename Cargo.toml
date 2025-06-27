@@ -9,7 +9,7 @@ members = [
     "common",
     "drivers/framebuffer",
     "drivers/serial-port",
-    "kernel",
+    "kernel", "utils/ansi-escape",
     "utils/pc-screen-font",
 ]
 
@@ -27,5 +27,5 @@ x86 = "0.52.0"
 ovmf-prebuilt = "0.2.3"
 
 [build-dependencies]
-kernel = { path = "./kernel", artifact = "bin", target = "x86_64-unknown-none" }
+# kernel = { path = "./kernel", artifact = "bin", target = "x86_64-unknown-none" }
 bootloader = "0.11.3"

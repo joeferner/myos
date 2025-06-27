@@ -139,7 +139,6 @@ impl<'a> Font<'a> {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     include_font_data!(DEFAULT_8X16, "./bin/Tamsyn8x16b.psf");
