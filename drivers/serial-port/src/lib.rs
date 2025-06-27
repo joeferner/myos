@@ -1,7 +1,5 @@
 #![no_std]
 
-// see uart_16550
-
 use conquer_once::{spin::OnceCell, TryInitError};
 use spin::Mutex;
 
@@ -17,20 +15,19 @@ pub unsafe fn serial1_init() -> Result<(), TryInitError> {
 }
 
 pub struct SerialPort {
-    inner: uart_16550::SerialPort,
 }
 
 impl SerialPort {
     pub unsafe fn new(addr: u16) -> Self {
-        let mut inner = unsafe { uart_16550::SerialPort::new(addr) };
-        inner.init();
-        Self { inner }
+        // TODO implement me (See https://github.com/rust-osdev/uart_16550/blob/master/src/port.rs)
+        Self {  }
     }
 }
 
 impl<'a> core::fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
-        self.inner.write_str(s)
+        // TODO implement me
+        Ok(())
     }
 }
 

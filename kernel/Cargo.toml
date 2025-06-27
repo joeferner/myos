@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bootloader_api = { workspace = true }
 conquer-once = { workspace = true }
-paste = { workspace = true }
 pc-screen-font = { path = "../utils/pc-screen-font" }
 framebuffer = { path = "../drivers/framebuffer" }
 serial-port = { path = "../drivers/serial-port" }

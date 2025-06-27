@@ -2,7 +2,6 @@
 #![no_main]
 
 use bootloader_api::BootInfo;
-use core::panic::PanicInfo;
 
 use console::console_init;
 use serial_port::serial1_init;
@@ -23,12 +22,15 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     println!("Hello World 1!");
     println!("Hello World 2!");
-    println!("this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string");
+    println!(
+        "this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string"
+    );
 
     loop {}
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
