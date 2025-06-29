@@ -3,7 +3,7 @@
 pub mod console;
 
 use ansi_escape::Color;
-use common::{FrameBuffer, PixelFormat};
+use common::PixelFormat;
 use pc_screen_font::Font;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,63 +20,73 @@ pub struct Rect {
     pub height: usize,
 }
 
-pub struct FrameBufferDriver {
-    framebuffer: FrameBuffer,
+pub trait FrameBuffer {
+    fn width(&self) -> usize;
+    fn height(&self) -> usize;
+    fn stride(&self) -> usize;
+    fn bytes_per_pixel(&self) -> usize;
+    fn pixel_format(&self) -> PixelFormat;
+    fn buffer_mut(&mut self) -> &mut [u8];
 }
 
-impl FrameBufferDriver {
-    pub fn new(framebuffer: FrameBuffer) -> Self {
+pub struct FrameBufferDriver<TFrameBuffer: FrameBuffer> {
+    framebuffer: TFrameBuffer,
+}
+
+impl<TFrameBuffer: FrameBuffer> FrameBufferDriver<TFrameBuffer> {
+    pub fn new(framebuffer: TFrameBuffer) -> Self {
         Self { framebuffer }
     }
 
     pub fn clear(&mut self, color: Color) {
-        let info = self.framebuffer.info();
         let rect = Rect {
             x: 0,
             y: 0,
-            width: info.width,
-            height: info.height,
+            width: self.framebuffer.width(),
+            height: self.framebuffer.height(),
         };
         self.draw_rect(rect, color);
     }
 
     pub fn draw_rect(&mut self, rect: Rect, color: Color) {
-        let info = self.framebuffer.info();
+        let stride = self.framebuffer.stride();
+        let bytes_per_pixel = self.framebuffer.bytes_per_pixel();
+        let pixel_format = self.framebuffer.pixel_format();
         let pixel_buffer = self.framebuffer.buffer_mut();
 
         for y in 0..rect.height {
-            let mut byte_offset = (rect.y + y) * info.stride * info.bytes_per_pixel;
-            byte_offset += rect.x * info.bytes_per_pixel;
+            let mut byte_offset = (rect.y + y) * stride * bytes_per_pixel;
+            byte_offset += rect.x * bytes_per_pixel;
             for _x in 0..rect.width {
                 if byte_offset >= pixel_buffer.len() {
                     return;
                 }
                 let pixel_buf = &mut pixel_buffer[byte_offset..];
-                FrameBufferDriver::set_pixel_raw(pixel_buf, info.pixel_format, color);
-                byte_offset += info.bytes_per_pixel;
+                FrameBufferDriver::<TFrameBuffer>::set_pixel_raw(pixel_buf, pixel_format, color);
+                byte_offset += bytes_per_pixel;
             }
         }
     }
 
     #[allow(dead_code)]
     pub fn set_pixel(&mut self, position: Position, color: Color) {
-        let info = self.framebuffer.info();
+        let pixel_format = self.framebuffer.pixel_format();
 
         // calculate offset to first byte of pixel
         let byte_offset = {
             // use stride to calculate pixel offset of target line
-            let line_offset = position.y * info.stride;
+            let line_offset = position.y * self.framebuffer.stride();
             // add x position to get the absolute pixel offset in buffer
             let pixel_offset = line_offset + position.x;
             // convert to byte offset
-            pixel_offset * info.bytes_per_pixel
+            pixel_offset * self.framebuffer.bytes_per_pixel()
         };
         // set pixel based on color format
         let pixel_buffer = &mut self.framebuffer.buffer_mut()[byte_offset..];
         if byte_offset >= pixel_buffer.len() {
             return;
         }
-        FrameBufferDriver::set_pixel_raw(pixel_buffer, info.pixel_format, color);
+        FrameBufferDriver::<TFrameBuffer>::set_pixel_raw(pixel_buffer, pixel_format, color);
     }
 
     #[allow(dead_code)]
@@ -112,23 +122,25 @@ impl FrameBufferDriver {
         fg_color: Color,
         bg_color: Color,
     ) {
-        let info = self.framebuffer.info();
+        let stride = self.framebuffer.stride();
+        let bytes_per_pixel = self.framebuffer.bytes_per_pixel();
+        let pixel_format = self.framebuffer.pixel_format();
         let pixel_buffer = &mut self.framebuffer.buffer_mut();
         font.render_char(ch, |x, y, v| {
             let color = if v { fg_color } else { bg_color };
             let byte_offset = {
                 // use stride to calculate pixel offset of target line
-                let line_offset = (position.y + y) * info.stride;
+                let line_offset = (position.y + y) * stride;
                 // add x position to get the absolute pixel offset in buffer
                 let pixel_offset = line_offset + (position.x + x);
                 // convert to byte offset
-                pixel_offset * info.bytes_per_pixel
+                pixel_offset * bytes_per_pixel
             };
             if byte_offset >= pixel_buffer.len() {
                 return;
             }
             let p = &mut pixel_buffer[byte_offset..];
-            FrameBufferDriver::set_pixel_raw(p, info.pixel_format, color);
+            FrameBufferDriver::<TFrameBuffer>::set_pixel_raw(p, pixel_format, color);
         });
     }
 
@@ -163,29 +175,30 @@ impl FrameBufferDriver {
     }
 
     pub fn get_width(&self) -> usize {
-        self.framebuffer.info().width
+        self.framebuffer.width()
     }
 
     pub fn get_height(&self) -> usize {
-        self.framebuffer.info().height
+        self.framebuffer.height()
     }
 
     fn scroll_y(&mut self, offset: isize) {
-        let info = self.framebuffer.info();
+        let stride = self.framebuffer.stride();
+        let bytes_per_pixel = self.framebuffer.bytes_per_pixel();
         let buffer = self.framebuffer.buffer_mut();
 
         if offset < 0 {
             let offset: usize = offset.abs() as usize;
             let from_offset = {
-                let line_offset = offset * info.stride;
-                line_offset * info.bytes_per_pixel
+                let line_offset = offset * stride;
+                line_offset * bytes_per_pixel
             };
             buffer.copy_within(from_offset..buffer.len(), 0);
         } else {
             let offset: usize = offset as usize;
             let to_offset = {
-                let line_offset = offset * info.stride;
-                line_offset * info.bytes_per_pixel
+                let line_offset = offset * stride;
+                line_offset * bytes_per_pixel
             };
             buffer.copy_within(0..buffer.len() - to_offset, to_offset);
         }

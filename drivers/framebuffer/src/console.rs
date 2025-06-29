@@ -1,11 +1,7 @@
-use crate::{Color, Position};
+use crate::{Color, FrameBuffer, Position};
 use crate::{FrameBufferDriver, Rect};
 use ansi_escape::AnsiEscapeParser;
-use conquer_once::{TryInitError, spin::OnceCell};
 use pc_screen_font::Font;
-use spin::Mutex;
-
-static CONSOLE: OnceCell<Mutex<Console>> = OnceCell::uninit();
 
 const DEFAULT_BG_COLOR: Color = Color {
     red: 0,
@@ -18,8 +14,8 @@ const DEFAULT_FG_COLOR: Color = Color {
     blue: 200,
 };
 
-pub struct Console {
-    driver: FrameBufferDriver,
+pub struct Console<TFrameBuffer: FrameBuffer> {
+    driver: FrameBufferDriver<TFrameBuffer>,
     ansi_parser: AnsiEscapeParser,
     fg_color: Color,
     bg_color: Color,
@@ -30,40 +26,32 @@ pub struct Console {
     bold: bool,
 }
 
-impl Console {
-    pub fn init(
-        driver: FrameBufferDriver,
+impl<TFrameBuffer: FrameBuffer> Console<TFrameBuffer> {
+    pub fn new(
+        driver: FrameBufferDriver<TFrameBuffer>,
         font: Font<'static>,
         bold_font: Font<'static>,
-    ) -> Result<(), TryInitError> {
-        CONSOLE.try_init_once(|| {
-            spin::Mutex::new(Console {
-                driver,
-                ansi_parser: AnsiEscapeParser::new(),
-                fg_color: DEFAULT_FG_COLOR,
-                bg_color: DEFAULT_BG_COLOR,
-                column: 0,
-                row: 0,
-                font,
-                bold_font,
-                bold: false,
-            })
-        })
+    ) -> Self {
+        Console {
+            driver,
+            ansi_parser: AnsiEscapeParser::new(),
+            fg_color: DEFAULT_FG_COLOR,
+            bg_color: DEFAULT_BG_COLOR,
+            column: 0,
+            row: 0,
+            font,
+            bold_font,
+            bold: false,
+        }
     }
 
-    pub fn clear() {
-        if let Ok(console) = CONSOLE.try_get() {
-            console.lock()._clear();
-        }
+    pub fn clear(&mut self) {
+        self.driver.clear(self.bg_color);
     }
 
     pub fn reset_all_modes(&mut self) {
         self.fg_color = DEFAULT_FG_COLOR;
         self.bg_color = DEFAULT_BG_COLOR;
-    }
-
-    fn _clear(&mut self) {
-        self.driver.clear(self.bg_color);
     }
 
     fn get_columns(&self) -> usize {
@@ -173,7 +161,7 @@ impl Console {
     }
 }
 
-impl core::fmt::Write for Console {
+impl<TFrameBuffer: FrameBuffer> core::fmt::Write for Console<TFrameBuffer> {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for ch in s.chars() {
             self.push_char(ch);
@@ -182,11 +170,68 @@ impl core::fmt::Write for Console {
     }
 }
 
-pub fn console_print_args(args: core::fmt::Arguments) -> core::fmt::Result {
+#[cfg(test)]
+mod tests {
+    extern crate std;
+
     use core::fmt::Write;
-    if let Ok(console) = CONSOLE.try_get() {
-        console.lock().write_fmt(args)
-    } else {
-        Ok(())
+
+    use super::*;
+    use common::PixelFormat;
+    use pc_screen_font::{Font, FontData, include_font_data};
+
+    include_font_data!(DEFAULT_8X16, "../resources/Tamsyn8x16r.psf");
+    include_font_data!(DEFAULT_8X16_BOLD, "../resources/Tamsyn8x16b.psf");
+
+    struct MockFrameBuffer<const N: usize> {
+        width: usize,
+        height: usize,
+        stride: usize,
+        bytes_per_pixel: usize,
+        pixel_format: common::PixelFormat,
+        buffer: [u8; N],
+    }
+
+    impl<const N: usize> FrameBuffer for MockFrameBuffer<N> {
+        fn width(&self) -> usize {
+            self.width
+        }
+
+        fn height(&self) -> usize {
+            self.height
+        }
+
+        fn stride(&self) -> usize {
+            self.stride
+        }
+
+        fn bytes_per_pixel(&self) -> usize {
+            self.bytes_per_pixel
+        }
+
+        fn pixel_format(&self) -> common::PixelFormat {
+            self.pixel_format
+        }
+
+        fn buffer_mut(&mut self) -> &mut [u8] {
+            &mut self.buffer
+        }
+    }
+
+    #[test]
+    pub fn hello_world() {
+        let framebuffer = MockFrameBuffer {
+            width: 128,
+            height: 64,
+            bytes_per_pixel: 3,
+            pixel_format: PixelFormat::Rgb,
+            stride: 128,
+            buffer: [0; 64 * 128],
+        };
+        let driver = FrameBufferDriver::new(framebuffer);
+        let font = Font::new(DEFAULT_8X16);
+        let bold_font = Font::new(DEFAULT_8X16_BOLD);
+        let mut console = Console::new(driver, font, bold_font);
+        console.write_str("Hello World").unwrap();
     }
 }

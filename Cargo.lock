@@ -281,7 +281,6 @@ version = "0.1.0"
 dependencies = [
  "ansi-escape",
  "common",
- "conquer-once",
  "pc-screen-font",
  "spin",
 ]

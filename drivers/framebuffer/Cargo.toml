@@ -5,7 +5,6 @@ version.workspace = true
 
 [dependencies]
 common = { path = "../../common" }
-conquer-once = { workspace = true }
 pc-screen-font = { path = "../../utils/pc-screen-font" }
 ansi-escape = { path = "../../utils/ansi-escape" }
 spin = { workspace = true }
