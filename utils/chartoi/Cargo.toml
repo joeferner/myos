@@ -1,7 +1,0 @@
-[package]
-name = "chartoi"
-edition.workspace = true
-version.workspace = true
-
-[dependencies]
-num-traits = { workspace = true }

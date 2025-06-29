@@ -4,4 +4,4 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
-chartoi = { path = "../../utils/chartoi" }
+heapless = { workspace = true }
