@@ -20,11 +20,15 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         console_init(framebuffer).expect("console failed to init");
     }
 
-    println!("Hello World 1!");
+    for n in 0..80 {
+        println!("line {n}");
+    }
     println!("Hello World 2!");
     println!(
         "this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string"
     );
+    println!("\u{1b}[38;5;15m\u{1b}[48;2;255;0;0mHello\u{1b}[0m");
+    println!("\u{1b}[10;10HHello From 10,10");
 
     loop {}
 }

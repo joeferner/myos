@@ -2,6 +2,7 @@
 
 pub mod console;
 
+use ansi_escape::Color;
 use common::{FrameBuffer, PixelFormat};
 use pc_screen_font::Font;
 
@@ -17,13 +18,6 @@ pub struct Rect {
     pub y: usize,
     pub width: usize,
     pub height: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Color {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
 }
 
 pub struct FrameBufferDriver {
@@ -54,6 +48,9 @@ impl FrameBufferDriver {
             let mut byte_offset = (rect.y + y) * info.stride * info.bytes_per_pixel;
             byte_offset += rect.x * info.bytes_per_pixel;
             for _x in 0..rect.width {
+                if byte_offset >= pixel_buffer.len() {
+                    return;
+                }
                 let pixel_buf = &mut pixel_buffer[byte_offset..];
                 FrameBufferDriver::set_pixel_raw(pixel_buf, info.pixel_format, color);
                 byte_offset += info.bytes_per_pixel;
@@ -74,9 +71,11 @@ impl FrameBufferDriver {
             // convert to byte offset
             pixel_offset * info.bytes_per_pixel
         };
-
         // set pixel based on color format
         let pixel_buffer = &mut self.framebuffer.buffer_mut()[byte_offset..];
+        if byte_offset >= pixel_buffer.len() {
+            return;
+        }
         FrameBufferDriver::set_pixel_raw(pixel_buffer, info.pixel_format, color);
     }
 
@@ -125,6 +124,9 @@ impl FrameBufferDriver {
                 // convert to byte offset
                 pixel_offset * info.bytes_per_pixel
             };
+            if byte_offset >= pixel_buffer.len() {
+                return;
+            }
             let p = &mut pixel_buffer[byte_offset..];
             FrameBufferDriver::set_pixel_raw(p, info.pixel_format, color);
         });
@@ -133,16 +135,25 @@ impl FrameBufferDriver {
     fn set_pixel_raw(pixel_buffer: &mut [u8], pixel_format: PixelFormat, color: Color) {
         match pixel_format {
             PixelFormat::Rgb => {
+                if pixel_buffer.len() < 3 {
+                    return;
+                }
                 pixel_buffer[0] = color.red;
                 pixel_buffer[1] = color.green;
                 pixel_buffer[2] = color.blue;
             }
             PixelFormat::Bgr => {
+                if pixel_buffer.len() < 3 {
+                    return;
+                }
                 pixel_buffer[0] = color.blue;
                 pixel_buffer[1] = color.green;
                 pixel_buffer[2] = color.red;
             }
             PixelFormat::U8 => {
+                if pixel_buffer.len() < 1 {
+                    return;
+                }
                 // use a simple average-based grayscale transform
                 let gray = color.red / 3 + color.green / 3 + color.blue / 3;
                 pixel_buffer[0] = gray;
@@ -157,5 +168,26 @@ impl FrameBufferDriver {
 
     pub fn get_height(&self) -> usize {
         self.framebuffer.info().height
+    }
+
+    fn scroll_y(&mut self, offset: isize) {
+        let info = self.framebuffer.info();
+        let buffer = self.framebuffer.buffer_mut();
+
+        if offset < 0 {
+            let offset: usize = offset.abs() as usize;
+            let from_offset = {
+                let line_offset = offset * info.stride;
+                line_offset * info.bytes_per_pixel
+            };
+            buffer.copy_within(from_offset..buffer.len(), 0);
+        } else {
+            let offset: usize = offset as usize;
+            let to_offset = {
+                let line_offset = offset * info.stride;
+                line_offset * info.bytes_per_pixel
+            };
+            buffer.copy_within(0..buffer.len() - to_offset, to_offset);
+        }
     }
 }
