@@ -11,6 +11,9 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "ansi-escape"
 version = "0.1.0"
+dependencies = [
+ "chartoi",
+]
 
 [[package]]
 name = "anyhow"
@@ -141,6 +144,13 @@ name = "cfg-if"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+
+[[package]]
+name = "chartoi"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "common"
@@ -468,6 +478,15 @@ version = "0.1.0"
 dependencies = [
  "bootloader",
  "ovmf-prebuilt",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
+dependencies = [
+ "autocfg",
 ]
 
 [[package]]

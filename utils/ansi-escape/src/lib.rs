@@ -3,6 +3,41 @@
 const BUFFER_SIZE: usize = 20;
 const ESCAPE: char = '\x1b';
 
+macro_rules! try_parse_char {
+    ($self:expr, $offset:expr, $ch:expr) => {
+        if $offset >= $self.buffer_len {
+            return AnsiEvent::None;
+        }
+        if $self.buffer[$offset] != $ch {
+            return AnsiEvent::None;
+        }
+        $offset += 1;
+    };
+}
+
+macro_rules! try_parse_u16 {
+    ($self:expr, $offset:expr) => {{
+        let mut i = $offset;
+        let end_offset = loop {
+            if i >= $self.buffer_len {
+                break i - 1;
+            }
+            if $self.buffer[i] < '0' && $self.buffer[i] > '9' {
+                break i - 1;
+            }
+            i += 1;
+        };
+        if end_offset <= $offset {
+            return AnsiEvent::None;
+        }
+        let ret = chartoi::chartou::<u16>(&$self.buffer[$offset..end_offset]);
+        if ret.is_ok() {
+            $offset = end_offset;
+        }
+        ret
+    }};
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub red: u8,
@@ -51,7 +86,12 @@ impl AnsiEscapeParser {
     }
 
     fn parse_buffer(&mut self) -> AnsiEvent {
-        if let Some(event) = self.try_parse_set_rgb_color() {
+        let mut offset = 0;
+        try_parse_char!(self, offset, ESCAPE);
+        try_parse_char!(self, offset, '[');
+
+        let event = self.try_parse_set_rgb_color(offset);
+        if !matches!(event, AnsiEvent::None) {
             self.buffer_len = 0;
             return event;
         }
@@ -63,9 +103,24 @@ impl AnsiEscapeParser {
     /// ESC[38;2;{r};{g};{b}m  Set foreground color as RGB.
     /// ESC[48;2;{r};{g};{b}m  Set background color as RGB.
     ///
-    fn try_parse_set_rgb_color(&self) -> Option<AnsiEvent> {
-        try_parse_escape_start!();
-        None
+    fn try_parse_set_rgb_color(&self, mut offset: usize) -> AnsiEvent {
+        let code = if let Ok(code) = try_parse_u16!(self, offset) {
+            if code != 38 && code != 48 {
+                return AnsiEvent::None;
+            } else {
+                code
+            }
+        } else {
+            return AnsiEvent::None;
+        };
+
+        try_parse_char!(self, offset, ';');
+        
+        AnsiEvent::SetForegroundColor(Color {
+            red: 0,
+            green: 0,
+            blue: 0,
+        })
     }
 }
 
