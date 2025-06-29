@@ -52,6 +52,8 @@ pub enum AnsiEvent {
     CursorLeft(u8),
     /// reset all modes (styles and colors)
     ResetAllModes,
+    SetBoldMode,
+    ResetBoldMode,
     Char(char),
     InvalidEscapeSequence(heapless::String<BUFFER_SIZE>),
     SetForegroundColor(Color),
@@ -168,12 +170,18 @@ impl AnsiEscapeParser {
         let mut it = s.split(";").map(|v| v.parse::<u8>());
 
         // 0  - reset all modes (styles and colors)
+        // 1  - set bold mode
+        // 22 - reset bold mode
         // 38 - set forground
         // 48 - set background
         let code: u8 = next_value!(it);
 
         if code == 0 {
             Ok(AnsiEvent::ResetAllModes)
+        } else if code == 1 {
+            Ok(AnsiEvent::SetBoldMode)
+        } else if code == 22 {
+            Ok(AnsiEvent::ResetBoldMode)
         } else if code == 38 || code == 48 {
             self.try_parse_graphics_color(code, &mut it)
         } else {
@@ -294,6 +302,15 @@ mod tests {
     pub fn test_reset_all_modes() {
         let events = test_single_event!("\u{1b}[0m");
         assert_matches!(events[0], AnsiEvent::ResetAllModes);
+    }
+
+    #[test]
+    pub fn test_bold() {
+        let events = test_single_event!("\u{1b}[1m");
+        assert_matches!(events[0], AnsiEvent::SetBoldMode);
+
+        let events = test_single_event!("\u{1b}[22m");
+        assert_matches!(events[0], AnsiEvent::ResetBoldMode);
     }
 
     #[test]

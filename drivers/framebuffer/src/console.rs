@@ -26,10 +26,16 @@ pub struct Console {
     column: usize,
     row: usize,
     font: Font<'static>,
+    bold_font: Font<'static>,
+    bold: bool,
 }
 
 impl Console {
-    pub fn init(driver: FrameBufferDriver, font: Font<'static>) -> Result<(), TryInitError> {
+    pub fn init(
+        driver: FrameBufferDriver,
+        font: Font<'static>,
+        bold_font: Font<'static>,
+    ) -> Result<(), TryInitError> {
         CONSOLE.try_init_once(|| {
             spin::Mutex::new(Console {
                 driver,
@@ -39,6 +45,8 @@ impl Console {
                 column: 0,
                 row: 0,
                 font,
+                bold_font,
+                bold: false,
             })
         })
     }
@@ -76,8 +84,15 @@ impl Console {
             x: self.column * self.font.width,
             y: self.row * self.font.height,
         };
+
+        let font = if self.bold {
+            &self.bold_font
+        } else {
+            &self.font
+        };
+
         self.driver
-            .draw_char(ch, pos, &self.font, self.fg_color, self.bg_color);
+            .draw_char(ch, pos, &font, self.fg_color, self.bg_color);
         self.column += 1;
         if self.column >= self.get_columns() {
             self.next_line();
@@ -152,6 +167,8 @@ impl Console {
             ansi_escape::AnsiEvent::CursorLeft(val) => {
                 self.set_cursor_position(self.column.saturating_sub(val.into()), self.row);
             }
+            ansi_escape::AnsiEvent::SetBoldMode => self.bold = true,
+            ansi_escape::AnsiEvent::ResetBoldMode => self.bold = false,
         }
     }
 }

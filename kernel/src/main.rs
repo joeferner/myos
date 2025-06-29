@@ -28,7 +28,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         "this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string"
     );
     println!("\u{1b}[38;5;15m\u{1b}[48;2;255;0;0mHello\u{1b}[0m");
-    println!("\u{1b}[10;10HHello From 10,10");
+    println!("\u{1b}[10;10H\u{1b}[1mHello\u{1b}[22m From 10,10");
 
     loop {}
 }
