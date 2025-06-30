@@ -3,16 +3,8 @@ use crate::{FrameBufferDriver, Rect};
 use ansi_escape::AnsiEscapeParser;
 use pc_screen_font::Font;
 
-const DEFAULT_BG_COLOR: Color = Color {
-    red: 0,
-    green: 0,
-    blue: 0,
-};
-const DEFAULT_FG_COLOR: Color = Color {
-    red: 200,
-    green: 200,
-    blue: 200,
-};
+const DEFAULT_BG_COLOR: Color = Color::black();
+const DEFAULT_FG_COLOR: Color = Color::rgb(200, 200, 200);
 
 pub struct Console<TFrameBuffer: FrameBuffer> {
     driver: FrameBufferDriver<TFrameBuffer>,
@@ -183,10 +175,10 @@ mod tests {
     use super::*;
     use ansi_escape::codes::Ansi;
     use common::PixelFormat;
-    use pc_screen_font::{Font, FontData, include_font_data};
+    use pc_screen_font::Font;
 
-    include_font_data!(DEFAULT_8X16, "../resources/Tamsyn8x16r.psf");
-    include_font_data!(DEFAULT_8X16_BOLD, "../resources/Tamsyn8x16b.psf");
+    const DEFAULT_8X16: &[u8] = include_bytes!("../resources/Tamsyn8x16r.psf");
+    const DEFAULT_8X16_BOLD: &[u8] = include_bytes!("../resources/Tamsyn8x16b.psf");
 
     struct MockFrameBuffer<const N: usize> {
         width: usize,

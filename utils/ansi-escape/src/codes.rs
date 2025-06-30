@@ -95,11 +95,7 @@ mod tests {
 
     #[test]
     pub fn foreground_color() {
-        let color = Color {
-            red: 255,
-            green: 0,
-            blue: 0,
-        };
+        let color = Color::red();
         assert_eq!(
             format!("{}", Ansi::fg(color, "Hello, world!")),
             "\u{1b}[38;2;255;0;0mHello, world!\u{1b}[39m"
@@ -108,11 +104,7 @@ mod tests {
 
     #[test]
     pub fn background_color() {
-        let color = Color {
-            red: 255,
-            green: 0,
-            blue: 0,
-        };
+        let color = Color::red();
         assert_eq!(
             format!("{}", Ansi::bg(color, "Hello, world!")),
             "\u{1b}[48;2;255;0;0mHello, world!\u{1b}[49m"
@@ -121,11 +113,7 @@ mod tests {
 
     #[test]
     pub fn foreground_and_background_color() {
-        let color = Color {
-            red: 255,
-            green: 0,
-            blue: 0,
-        };
+        let color = Color::red();
         assert_eq!(
             format!("{}", Ansi::fg(color, &Ansi::bg(color, "Hello, world!"))),
             "\u{1b}[38;2;255;0;0m\u{1b}[48;2;255;0;0mHello, world!\u{1b}[49m\u{1b}[39m"

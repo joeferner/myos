@@ -1,6 +1,6 @@
 use conquer_once::{TryInitError, spin::OnceCell};
 use framebuffer::{FrameBuffer, FrameBufferDriver, console::Console};
-use pc_screen_font::{Font, FontData, include_font_data};
+use pc_screen_font::Font;
 use serial_port::serial_print_args;
 use spin::Mutex;
 
@@ -42,8 +42,8 @@ impl FrameBuffer for MyFrameBuffer {
 
 static CONSOLE: OnceCell<Mutex<Console<MyFrameBuffer>>> = OnceCell::uninit();
 
-include_font_data!(DEFAULT_8X16, "./resources/Tamsyn8x16r.psf");
-include_font_data!(DEFAULT_8X16_BOLD, "./resources/Tamsyn8x16b.psf");
+const DEFAULT_8X16: &[u8] = include_bytes!("./resources/Tamsyn8x16r.psf");
+const DEFAULT_8X16_BOLD: &[u8] = include_bytes!("./resources/Tamsyn8x16b.psf");
 
 pub fn console_init(framebuffer: bootloader_api::info::FrameBuffer) -> Result<(), TryInitError> {
     let framebuffer = FrameBufferDriver::new(MyFrameBuffer::new(framebuffer));

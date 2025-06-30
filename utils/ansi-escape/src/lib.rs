@@ -37,36 +37,28 @@ pub struct Color {
 }
 
 impl Color {
-    pub fn white() -> Color {
-        Color {
-            red: 255,
-            green: 255,
-            blue: 255,
-        }
+    pub const fn rgb(red: u8, green: u8, blue: u8) -> Color {
+        Color { red, green, blue }
     }
 
-    pub fn red() -> Color {
-        Color {
-            red: 255,
-            green: 0,
-            blue: 0,
-        }
+    pub const fn white() -> Color {
+        Color::rgb(255, 255, 255)
     }
 
-    pub fn green() -> Color {
-        Color {
-            red: 0,
-            green: 255,
-            blue: 0,
-        }
+    pub const fn black() -> Color {
+        Color::rgb(0, 0, 0)
     }
 
-    pub fn blue() -> Color {
-        Color {
-            red: 0,
-            green: 0,
-            blue: 255,
-        }
+    pub const fn red() -> Color {
+        Color::rgb(255, 0, 0)
+    }
+
+    pub const fn green() -> Color {
+        Color::rgb(0, 255, 0)
+    }
+
+    pub const fn blue() -> Color {
+        Color::rgb(0, 0, 255)
     }
 }
 
@@ -238,11 +230,7 @@ impl AnsiEscapeParser {
     where
         T: Iterator<Item = Result<u8, ParseIntError>>,
     {
-        let mut color = Color {
-            red: 0,
-            green: 0,
-            blue: 0,
-        };
+        let mut color = Color::black();
 
         // 2  - rgb color
         // 5  - 256 colors
@@ -371,27 +359,21 @@ mod tests {
     #[test]
     pub fn test_color_by_id() {
         let events = test_single_event!("\u{1b}[38;5;177m");
-        assert_matches!(
-            events[0],
-            AnsiEvent::SetForegroundColor(Color {
-                red: 215,
-                green: 135,
-                blue: 255
-            })
-        );
+        if let AnsiEvent::SetForegroundColor(c) = events[0] {
+            assert_eq!(c, Color::rgb(215, 135, 255));
+        } else {
+            panic!("expected SetForegroundColor");
+        }
     }
 
     #[test]
     pub fn test_rgb_color() {
         let events = test_single_event!("\u{1b}[38;2;255;0;50m");
-        assert_matches!(
-            events[0],
-            AnsiEvent::SetForegroundColor(Color {
-                red: 255,
-                green: 0,
-                blue: 50
-            })
-        );
+        if let AnsiEvent::SetForegroundColor(c) = events[0] {
+            assert_eq!(c, Color::rgb(255, 0, 50));
+        } else {
+            panic!("expected SetForegroundColor");
+        }
     }
 
     #[test]
