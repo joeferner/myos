@@ -142,10 +142,10 @@ impl<'a> Font<'a> {
 mod tests {
     use super::*;
 
-    include_font_data!(TAMSYN_PSF1, "./bin/Tamsyn8x16b.psf1");
-    include_font_data!(TAMSYN_NOTABLE_PSF1, "./bin/Tamsyn8x16b.notable.psf1");
-    include_font_data!(TAMSYN_PSF2, "./bin/Tamsyn8x16b.psf2");
-    include_font_data!(TAMSYN_NOTABLE_PSF2, "./bin/Tamsyn8x16b.notable.psf2");
+    include_font_data!(TAMSYN_PSF1, "./resources/test/Tamsyn8x16b.psf1");
+    include_font_data!(TAMSYN_NOTABLE_PSF1, "./resources/test/Tamsyn8x16b.notable.psf1");
+    include_font_data!(TAMSYN_PSF2, "./resources/test/Tamsyn8x16b.psf2");
+    include_font_data!(TAMSYN_NOTABLE_PSF2, "./resources/test/Tamsyn8x16b.notable.psf2");
 
     fn render_char_to_buffer(font: &Font, ch: char, stride: usize, buffer: &mut [u8]) {
         font.render_char(ch, |x, y, v| {
