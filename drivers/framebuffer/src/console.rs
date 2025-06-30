@@ -1,6 +1,6 @@
 use crate::{Color, FrameBuffer, Position};
 use crate::{FrameBufferDriver, Rect};
-use ansi_escape::AnsiEscapeParser;
+use ansi_escape::{Ansi, AnsiEscapeParser, AnsiEscapeParserError};
 use pc_screen_font::Font;
 
 const DEFAULT_BG_COLOR: Color = Color::black();
@@ -113,44 +113,63 @@ impl<TFrameBuffer: FrameBuffer> Console<TFrameBuffer> {
 
     fn push_char(&mut self, ch: char) {
         match self.ansi_parser.push(ch) {
-            ansi_escape::AnsiEvent::None => {}
-            ansi_escape::AnsiEvent::ResetAllModes => self.reset_all_modes(),
-            ansi_escape::AnsiEvent::Char(ch) => {
-                self._write_char(ch);
-            }
-            ansi_escape::AnsiEvent::InvalidEscapeSequence(s) => {
-                for ch in s.chars() {
-                    self._write_char(ch);
+            Ok(event) => {
+                if let Some(ansi) = event {
+                    match ansi {
+                        Ansi::ResetAllModes => self.reset_all_modes(),
+                        Ansi::Char(ch) => {
+                            self._write_char(ch);
+                        }
+                        Ansi::ForegroundColor(color) => {
+                            self.fg_color = color;
+                        }
+                        Ansi::BackgroundColor(color) => {
+                            self.bg_color = color;
+                        }
+                        Ansi::CursorHome => {
+                            self.set_cursor_position(0, 0);
+                        }
+                        Ansi::CursorTo(row, column) => {
+                            self.set_cursor_position(row.into(), column.into());
+                        }
+                        Ansi::CursorUp(val) => {
+                            self.set_cursor_position(
+                                self.column,
+                                self.row.saturating_sub(val.into()),
+                            );
+                        }
+                        Ansi::CursorDown(val) => {
+                            self.set_cursor_position(
+                                self.column,
+                                self.row.saturating_add(val.into()),
+                            );
+                        }
+                        Ansi::CursorRight(val) => {
+                            self.set_cursor_position(
+                                self.column.saturating_add(val.into()),
+                                self.row,
+                            );
+                        }
+                        Ansi::CursorLeft(val) => {
+                            self.set_cursor_position(
+                                self.column.saturating_sub(val.into()),
+                                self.row,
+                            );
+                        }
+                        Ansi::Bold => self.bold = true,
+                        Ansi::ResetBold => self.bold = false,
+                        Ansi::DefaultForeground => self.fg_color = DEFAULT_FG_COLOR,
+                        Ansi::DefaultBackground => self.bg_color = DEFAULT_BG_COLOR,
+                    }
                 }
             }
-            ansi_escape::AnsiEvent::SetForegroundColor(color) => {
-                self.fg_color = color;
-            }
-            ansi_escape::AnsiEvent::SetBackgroundColor(color) => {
-                self.bg_color = color;
-            }
-            ansi_escape::AnsiEvent::CursorHome => {
-                self.set_cursor_position(0, 0);
-            }
-            ansi_escape::AnsiEvent::CursorTo(row, column) => {
-                self.set_cursor_position(row.into(), column.into());
-            }
-            ansi_escape::AnsiEvent::CursorUp(val) => {
-                self.set_cursor_position(self.column, self.row.saturating_sub(val.into()));
-            }
-            ansi_escape::AnsiEvent::CursorDown(val) => {
-                self.set_cursor_position(self.column, self.row.saturating_add(val.into()));
-            }
-            ansi_escape::AnsiEvent::CursorRight(val) => {
-                self.set_cursor_position(self.column.saturating_add(val.into()), self.row);
-            }
-            ansi_escape::AnsiEvent::CursorLeft(val) => {
-                self.set_cursor_position(self.column.saturating_sub(val.into()), self.row);
-            }
-            ansi_escape::AnsiEvent::SetBoldMode => self.bold = true,
-            ansi_escape::AnsiEvent::ResetBoldMode => self.bold = false,
-            ansi_escape::AnsiEvent::DefaultForeground => self.fg_color = DEFAULT_FG_COLOR,
-            ansi_escape::AnsiEvent::DefaultBackground => self.bg_color = DEFAULT_BG_COLOR,
+            Err(err) => match err {
+                AnsiEscapeParserError::InvalidEscapeSequence(seq) => {
+                    for ch in seq.chars() {
+                        self._write_char(ch);
+                    }
+                }
+            },
         }
     }
 }
@@ -169,11 +188,11 @@ mod tests {
     extern crate std;
 
     use core::fmt::Write;
-    use std::format;
-    use zune_ppm::PPMDecoder;
+    use std::{format, fs};
+    use zune_core::options::EncoderOptions;
+    use zune_ppm::{PPMDecoder, PPMEncoder};
 
     use super::*;
-    use ansi_escape::codes::Ansi;
     use common::PixelFormat;
     use pc_screen_font::Font;
 
@@ -215,29 +234,53 @@ mod tests {
         }
     }
 
+    fn write_framebuffer_to_file<const N: usize>(framebuffer: &MockFrameBuffer<N>, dest: &str) {
+        let width = framebuffer.width();
+        let height = framebuffer.height();
+        let found_ppm = PPMEncoder::new(
+            &framebuffer.buffer,
+            EncoderOptions::new(
+                width,
+                height,
+                zune_core::colorspace::ColorSpace::RGB,
+                zune_core::bit_depth::BitDepth::Eight,
+            ),
+        )
+        .encode()
+        .unwrap();
+        fs::write(dest, found_ppm).unwrap();
+    }
+
     #[test]
     pub fn hello_world() {
         let hello_world_ppm = include_bytes!("../resources/test/console/hello_world.ppm");
 
+        const WIDTH: usize = 128;
+        const HEIGHT: usize = 64;
         let framebuffer = MockFrameBuffer {
-            width: 128,
-            height: 64,
+            width: WIDTH,
+            height: HEIGHT,
             bytes_per_pixel: 3,
             pixel_format: PixelFormat::Rgb,
             stride: 128,
-            buffer: [0; 3 * 64 * 128],
+            buffer: [0; 3 * HEIGHT * WIDTH],
         };
         let driver = FrameBufferDriver::new(framebuffer);
-        let font = Font::new(DEFAULT_8X16);
-        let bold_font = Font::new(DEFAULT_8X16_BOLD);
+        let font = Font::parse(DEFAULT_8X16).unwrap();
+        let bold_font = Font::parse(DEFAULT_8X16_BOLD).unwrap();
         let mut console = Console::new(driver, font, bold_font);
 
         console
             .write_str(&format!(
-                "{} World",
-                Ansi::fg(Color::red(), &Ansi::bg(Color::green(), "Hello"))
+                "{}{}Hello{}{} World",
+                Ansi::ForegroundColor(Color::red()),
+                Ansi::BackgroundColor(Color::green()),
+                Ansi::DefaultForeground,
+                Ansi::DefaultBackground
             ))
             .unwrap();
+
+        write_framebuffer_to_file(&console.driver.framebuffer, "/tmp/hello_world.ppm");
 
         let data = PPMDecoder::new(hello_world_ppm).decode().unwrap();
         assert_eq!(

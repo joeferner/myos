@@ -1,9 +1,8 @@
 #![no_std]
 #![feature(assert_matches)]
 
-use core::num::ParseIntError;
+use core::{fmt::Display, num::ParseIntError};
 
-pub mod codes;
 pub mod colors;
 
 macro_rules! next_value {
@@ -63,8 +62,7 @@ impl Color {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AnsiEvent {
-    None,
+pub enum Ansi {
     /// moves cursor to home position (0, 0)
     CursorHome,
     /// moves cursor to line #, column #
@@ -79,14 +77,47 @@ pub enum AnsiEvent {
     CursorLeft(u8),
     /// reset all modes (styles and colors)
     ResetAllModes,
-    SetBoldMode,
-    ResetBoldMode,
+    Bold,
+    ResetBold,
     Char(char),
-    InvalidEscapeSequence(heapless::String<BUFFER_SIZE>),
-    SetForegroundColor(Color),
-    SetBackgroundColor(Color),
+    ForegroundColor(Color),
+    BackgroundColor(Color),
     DefaultForeground,
     DefaultBackground,
+}
+
+impl Display for Ansi {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Ansi::CursorHome => write!(f, "\u{1b}[H"),
+            Ansi::CursorTo(line, column) => write!(f, "\u{1b}[{};{}H", line, column),
+            Ansi::CursorUp(n) => write!(f, "\u{1b}[{}A", n),
+            Ansi::CursorDown(n) => write!(f, "\u{1b}[{}B", n),
+            Ansi::CursorRight(n) => write!(f, "\u{1b}[{}C", n),
+            Ansi::CursorLeft(n) => write!(f, "\u{1b}[{}D", n),
+            Ansi::ResetAllModes => write!(f, "\u{1b}[0m"),
+            Ansi::Bold => write!(f, "\u{1b}[1m"),
+            Ansi::ResetBold => write!(f, "\u{1b}[22m"),
+            Ansi::Char(ch) => write!(f, "{}", ch),
+            Ansi::ForegroundColor(color) => write!(
+                f,
+                "\u{1b}[38;2;{};{};{}m",
+                color.red, color.green, color.blue
+            ),
+            Ansi::BackgroundColor(color) => write!(
+                f,
+                "\u{1b}[48;2;{};{};{}m",
+                color.red, color.green, color.blue
+            ),
+            Ansi::DefaultForeground => write!(f, "\u{1b}[39m"),
+            Ansi::DefaultBackground => write!(f, "\u{1b}[49m"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum AnsiEscapeParserError {
+    InvalidEscapeSequence(heapless::String<BUFFER_SIZE>),
 }
 
 pub struct AnsiEscapeParser {
@@ -100,57 +131,63 @@ impl AnsiEscapeParser {
         }
     }
 
-    pub fn push(&mut self, ch: char) -> AnsiEvent {
+    pub fn push(&mut self, ch: char) -> Result<Option<Ansi>, AnsiEscapeParserError> {
         if ch == ESCAPE || self.buffer.len() > 0 {
             // this check should not be need since we should have failed and cleared last push
             // but to be safe we'll keep in here
             if let Err(_) = self.buffer.push(ch) {
-                let result = AnsiEvent::InvalidEscapeSequence(self.buffer.clone());
+                let result = Err(AnsiEscapeParserError::InvalidEscapeSequence(
+                    self.buffer.clone(),
+                ));
                 self.buffer.clear();
                 return result;
             }
             if self.buffer.len() >= self.buffer.capacity() {
-                let result = AnsiEvent::InvalidEscapeSequence(self.buffer.clone());
+                let result = Err(AnsiEscapeParserError::InvalidEscapeSequence(
+                    self.buffer.clone(),
+                ));
                 self.buffer.clear();
                 return result;
             }
             if let Ok(event) = self.parse_buffer() {
-                event
+                Ok(event)
             } else {
-                let result = AnsiEvent::InvalidEscapeSequence(self.buffer.clone());
+                let result = Err(AnsiEscapeParserError::InvalidEscapeSequence(
+                    self.buffer.clone(),
+                ));
                 self.buffer.clear();
                 result
             }
         } else {
-            AnsiEvent::Char(ch)
+            Ok(Some(Ansi::Char(ch)))
         }
     }
 
-    fn parse_buffer(&mut self) -> Result<AnsiEvent, ()> {
+    fn parse_buffer(&mut self) -> Result<Option<Ansi>, ()> {
         if !self.buffer.starts_with("\u{1b}[") {
-            return Ok(AnsiEvent::None);
+            return Ok(None);
         }
 
         if let Some(rest) = self.buffer.get(2..) {
             let event = self.try_parse_cursor(rest)?;
-            if !matches!(event, AnsiEvent::None) {
+            if event.is_some() {
                 self.buffer.clear();
                 return Ok(event);
             }
 
             let event = self.try_parse_graphics_mode(rest)?;
-            if !matches!(event, AnsiEvent::None) {
+            if event.is_some() {
                 self.buffer.clear();
                 return Ok(event);
             }
         }
 
-        Ok(AnsiEvent::None)
+        Ok(None)
     }
 
-    fn try_parse_cursor(&self, s: &str) -> Result<AnsiEvent, ()> {
+    fn try_parse_cursor(&self, s: &str) -> Result<Option<Ansi>, ()> {
         if s == "H" {
-            return Ok(AnsiEvent::CursorHome);
+            return Ok(Some(Ansi::CursorHome));
         }
 
         // ESC[{line};{column}H
@@ -161,19 +198,19 @@ impl AnsiEscapeParser {
             let line: u8 = next_value!(it);
             let column: u8 = next_value!(it);
             assert_no_more_items!(it);
-            return Ok(AnsiEvent::CursorTo(line, column));
+            return Ok(Some(Ansi::CursorTo(line, column)));
         }
 
         if s.ends_with("A") || s.ends_with("B") || s.ends_with("C") || s.ends_with("D") {
             if let Ok(val) = s[0..s.len() - 1].parse::<u8>() {
                 if s.ends_with("A") {
-                    return Ok(AnsiEvent::CursorUp(val));
+                    return Ok(Some(Ansi::CursorUp(val)));
                 } else if s.ends_with("B") {
-                    return Ok(AnsiEvent::CursorDown(val));
+                    return Ok(Some(Ansi::CursorDown(val)));
                 } else if s.ends_with("C") {
-                    return Ok(AnsiEvent::CursorRight(val));
+                    return Ok(Some(Ansi::CursorRight(val)));
                 } else if s.ends_with("D") {
-                    return Ok(AnsiEvent::CursorLeft(val));
+                    return Ok(Some(Ansi::CursorLeft(val)));
                 } else {
                     return Err(());
                 }
@@ -182,7 +219,7 @@ impl AnsiEscapeParser {
             }
         }
 
-        Ok(AnsiEvent::None)
+        Ok(None)
     }
 
     /// see https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797#rgb-colors
@@ -190,9 +227,9 @@ impl AnsiEscapeParser {
     /// ESC[38;2;{r};{g};{b}m  Set foreground color as RGB.
     /// ESC[48;2;{r};{g};{b}m  Set background color as RGB.
     ///
-    fn try_parse_graphics_mode(&self, s: &str) -> Result<AnsiEvent, ()> {
+    fn try_parse_graphics_mode(&self, s: &str) -> Result<Option<Ansi>, ()> {
         if !s.ends_with("m") {
-            return Ok(AnsiEvent::None);
+            return Ok(None);
         }
         let s = &s[0..s.len() - 1];
 
@@ -208,25 +245,25 @@ impl AnsiEscapeParser {
         let code: u8 = next_value!(it);
 
         if code == 0 {
-            Ok(AnsiEvent::ResetAllModes)
+            Ok(Some(Ansi::ResetAllModes))
         } else if code == 1 {
-            Ok(AnsiEvent::SetBoldMode)
+            Ok(Some(Ansi::Bold))
         } else if code == 22 {
-            Ok(AnsiEvent::ResetBoldMode)
+            Ok(Some(Ansi::ResetBold))
         } else if code == 38 || code == 48 {
             self.try_parse_graphics_color(code, &mut it)
         } else if code == 39 {
             assert_no_more_items!(it);
-            Ok(AnsiEvent::DefaultForeground)
+            Ok(Some(Ansi::DefaultForeground))
         } else if code == 49 {
             assert_no_more_items!(it);
-            Ok(AnsiEvent::DefaultBackground)
+            Ok(Some(Ansi::DefaultBackground))
         } else {
             Err(())
         }
     }
 
-    fn try_parse_graphics_color<T>(&self, code: u8, it: &mut T) -> Result<AnsiEvent, ()>
+    fn try_parse_graphics_color<T>(&self, code: u8, it: &mut T) -> Result<Option<Ansi>, ()>
     where
         T: Iterator<Item = Result<u8, ParseIntError>>,
     {
@@ -250,9 +287,9 @@ impl AnsiEscapeParser {
         };
 
         if code == 38 {
-            Ok(AnsiEvent::SetForegroundColor(color))
+            Ok(Some(Ansi::ForegroundColor(color)))
         } else if code == 48 {
-            Ok(AnsiEvent::SetBackgroundColor(color))
+            Ok(Some(Ansi::BackgroundColor(color)))
         } else {
             Err(())
         }
@@ -267,99 +304,119 @@ mod tests {
     use core::assert_matches::assert_matches;
     use std::vec::Vec;
 
-    fn push_str(parser: &mut AnsiEscapeParser, s: &str) -> impl Iterator<Item = AnsiEvent> {
+    fn push_str(parser: &mut AnsiEscapeParser, s: &str) -> impl Iterator<Item = Ansi> {
         s.chars()
-            .map(|ch| parser.push(ch))
-            .filter(|e| !matches!(e, AnsiEvent::None))
-    }
-
-    fn assert_invalid_sequence(event: &AnsiEvent, expected_str: &str) {
-        if let AnsiEvent::InvalidEscapeSequence(val) = &event {
-            assert_eq!(val, expected_str);
-        } else {
-            panic!(
-                "expected AnsiEvent::InvalidEscapeSequence, found {:?}",
-                event
-            );
-        }
+            .map(|ch| parser.push(ch).unwrap())
+            .filter(|e| e.is_some())
+            .map(|e| e.unwrap())
     }
 
     macro_rules! test_single_event {
         ($s:expr) => {{
             let mut parser = AnsiEscapeParser::new();
-            let events: Vec<AnsiEvent> = push_str(&mut parser, $s).collect();
+            let events: Vec<Ansi> = push_str(&mut parser, $s).collect();
             assert_eq!(1, events.len());
             events
         }};
     }
 
+    macro_rules! test_single_invalid_sequence {
+        ($s:expr, $expected:expr) => {
+            let mut parser = AnsiEscapeParser::new();
+            let mut found_err = false;
+            for ch in $s.chars() {
+                match parser.push(ch) {
+                    Ok(event) => {
+                        if event.is_some() {
+                            panic!("expected only invalid sequence but found {:?}", event)
+                        }
+                    }
+                    Err(err) => {
+                        if found_err {
+                            panic!("already found error but got {:?}", err);
+                        }
+                        match err {
+                            AnsiEscapeParserError::InvalidEscapeSequence(seq) => {
+                                assert_eq!($expected, seq);
+                            }
+                        }
+                        found_err = true;
+                    }
+                }
+            }
+            if !found_err {
+                panic!("never found error");
+            }
+        };
+    }
+
     #[test]
     pub fn test_cursor_home() {
         let events = test_single_event!("\u{1b}[H");
-        assert_matches!(events[0], AnsiEvent::CursorHome);
+        assert_matches!(events[0], Ansi::CursorHome);
     }
 
     #[test]
     pub fn test_cursor_to() {
         let events = test_single_event!("\u{1b}[10;20H");
-        assert_matches!(events[0], AnsiEvent::CursorTo(10, 20));
+        assert_matches!(events[0], Ansi::CursorTo(10, 20));
 
         let events = test_single_event!("\u{1b}[10;20f");
-        assert_matches!(events[0], AnsiEvent::CursorTo(10, 20));
+        assert_matches!(events[0], Ansi::CursorTo(10, 20));
     }
 
     #[test]
     pub fn test_cursor_up() {
         let events = test_single_event!("\u{1b}[5A");
-        assert_matches!(events[0], AnsiEvent::CursorUp(5));
+        assert_matches!(events[0], Ansi::CursorUp(5));
     }
 
     #[test]
     pub fn test_cursor_down() {
         let events = test_single_event!("\u{1b}[5B");
-        assert_matches!(events[0], AnsiEvent::CursorDown(5));
+        assert_matches!(events[0], Ansi::CursorDown(5));
     }
 
     #[test]
     pub fn test_cursor_right() {
         let events = test_single_event!("\u{1b}[5C");
-        assert_matches!(events[0], AnsiEvent::CursorRight(5));
+        assert_matches!(events[0], Ansi::CursorRight(5));
     }
 
     #[test]
     pub fn test_cursor_left() {
         let events = test_single_event!("\u{1b}[5D");
-        assert_matches!(events[0], AnsiEvent::CursorLeft(5));
+        assert_matches!(events[0], Ansi::CursorLeft(5));
     }
 
     #[test]
     pub fn test_reset_all_modes() {
         let events = test_single_event!("\u{1b}[0m");
-        assert_matches!(events[0], AnsiEvent::ResetAllModes);
+        assert_matches!(events[0], Ansi::ResetAllModes);
     }
 
     #[test]
     pub fn test_bold() {
         let events = test_single_event!("\u{1b}[1m");
-        assert_matches!(events[0], AnsiEvent::SetBoldMode);
+        assert_matches!(events[0], Ansi::Bold);
 
         let events = test_single_event!("\u{1b}[22m");
-        assert_matches!(events[0], AnsiEvent::ResetBoldMode);
+        assert_matches!(events[0], Ansi::ResetBold);
     }
 
     #[test]
     pub fn test_default_colors() {
         let events = test_single_event!("\u{1b}[39m");
-        assert_matches!(events[0], AnsiEvent::DefaultForeground);
+        assert_matches!(events[0], Ansi::DefaultForeground);
 
         let events = test_single_event!("\u{1b}[49m");
-        assert_matches!(events[0], AnsiEvent::DefaultBackground);
+        assert_matches!(events[0], Ansi::DefaultBackground);
     }
 
     #[test]
     pub fn test_color_by_id() {
         let events = test_single_event!("\u{1b}[38;5;177m");
-        if let AnsiEvent::SetForegroundColor(c) = events[0] {
+        if let Ansi::ForegroundColor(c) = events[0] {
             assert_eq!(c, Color::rgb(215, 135, 255));
         } else {
             panic!("expected SetForegroundColor");
@@ -369,7 +426,7 @@ mod tests {
     #[test]
     pub fn test_rgb_color() {
         let events = test_single_event!("\u{1b}[38;2;255;0;50m");
-        if let AnsiEvent::SetForegroundColor(c) = events[0] {
+        if let Ansi::ForegroundColor(c) = events[0] {
             assert_eq!(c, Color::rgb(255, 0, 50));
         } else {
             panic!("expected SetForegroundColor");
@@ -378,19 +435,16 @@ mod tests {
 
     #[test]
     pub fn test_rgb_color_value_too_large() {
-        let events = test_single_event!("\u{1b}[38;2;500;0;50m");
-        assert_invalid_sequence(&events[0], "\u{1b}[38;2;500;0;50m");
+        test_single_invalid_sequence!("\u{1b}[38;2;500;0;50m", "\u{1b}[38;2;500;0;50m");
     }
 
     #[test]
     pub fn test_rgb_color_value_too_many_args() {
-        let events = test_single_event!("\u{1b}[38;2;500;0;50;12m");
-        assert_invalid_sequence(&events[0], "\u{1b}[38;2;500;0;50;12m");
+        test_single_invalid_sequence!("\u{1b}[38;2;500;0;50;12m", "\u{1b}[38;2;500;0;50;12m");
     }
 
     #[test]
     pub fn test_rgb_color_value_too_few_args() {
-        let events = test_single_event!("\u{1b}[38;2;500;0m");
-        assert_invalid_sequence(&events[0], "\u{1b}[38;2;500;0m");
+        test_single_invalid_sequence!("\u{1b}[38;2;500;0m", "\u{1b}[38;2;500;0m");
     }
 }
