@@ -8,3 +8,7 @@ common = { path = "../../common" }
 pc-screen-font = { path = "../../utils/pc-screen-font" }
 ansi-escape = { path = "../../utils/ansi-escape" }
 spin = { workspace = true }
+
+[dev-dependencies]
+zune-core = { workspace = true }
+zune-ppm = { workspace = true }

@@ -157,6 +157,8 @@ impl<TFrameBuffer: FrameBuffer> Console<TFrameBuffer> {
             }
             ansi_escape::AnsiEvent::SetBoldMode => self.bold = true,
             ansi_escape::AnsiEvent::ResetBoldMode => self.bold = false,
+            ansi_escape::AnsiEvent::DefaultForeground => self.fg_color = DEFAULT_FG_COLOR,
+            ansi_escape::AnsiEvent::DefaultBackground => self.bg_color = DEFAULT_BG_COLOR,
         }
     }
 }
@@ -175,8 +177,11 @@ mod tests {
     extern crate std;
 
     use core::fmt::Write;
+    use std::format;
+    use zune_ppm::PPMDecoder;
 
     use super::*;
+    use ansi_escape::codes::Ansi;
     use common::PixelFormat;
     use pc_screen_font::{Font, FontData, include_font_data};
 
@@ -220,18 +225,32 @@ mod tests {
 
     #[test]
     pub fn hello_world() {
+        let hello_world_ppm = include_bytes!("../resources/test/console/hello_world.ppm");
+
         let framebuffer = MockFrameBuffer {
             width: 128,
             height: 64,
             bytes_per_pixel: 3,
             pixel_format: PixelFormat::Rgb,
             stride: 128,
-            buffer: [0; 64 * 128],
+            buffer: [0; 3 * 64 * 128],
         };
         let driver = FrameBufferDriver::new(framebuffer);
         let font = Font::new(DEFAULT_8X16);
         let bold_font = Font::new(DEFAULT_8X16_BOLD);
         let mut console = Console::new(driver, font, bold_font);
-        console.write_str("Hello World").unwrap();
+
+        console
+            .write_str(&format!(
+                "{} World",
+                Ansi::fg(Color::red(), &Ansi::bg(Color::green(), "Hello"))
+            ))
+            .unwrap();
+
+        let data = PPMDecoder::new(hello_world_ppm).decode().unwrap();
+        assert_eq!(
+            console.driver.framebuffer.buffer.to_vec(),
+            data.u8().unwrap()
+        );
     }
 }

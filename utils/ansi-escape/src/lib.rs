@@ -3,6 +3,7 @@
 
 use core::num::ParseIntError;
 
+pub mod codes;
 pub mod colors;
 
 macro_rules! next_value {
@@ -35,6 +36,40 @@ pub struct Color {
     pub blue: u8,
 }
 
+impl Color {
+    pub fn white() -> Color {
+        Color {
+            red: 255,
+            green: 255,
+            blue: 255,
+        }
+    }
+
+    pub fn red() -> Color {
+        Color {
+            red: 255,
+            green: 0,
+            blue: 0,
+        }
+    }
+
+    pub fn green() -> Color {
+        Color {
+            red: 0,
+            green: 255,
+            blue: 0,
+        }
+    }
+
+    pub fn blue() -> Color {
+        Color {
+            red: 0,
+            green: 0,
+            blue: 255,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnsiEvent {
     None,
@@ -58,6 +93,8 @@ pub enum AnsiEvent {
     InvalidEscapeSequence(heapless::String<BUFFER_SIZE>),
     SetForegroundColor(Color),
     SetBackgroundColor(Color),
+    DefaultForeground,
+    DefaultBackground,
 }
 
 pub struct AnsiEscapeParser {
@@ -173,7 +210,9 @@ impl AnsiEscapeParser {
         // 1  - set bold mode
         // 22 - reset bold mode
         // 38 - set forground
+        // 39 - default foreground
         // 48 - set background
+        // 49 - default background
         let code: u8 = next_value!(it);
 
         if code == 0 {
@@ -184,6 +223,12 @@ impl AnsiEscapeParser {
             Ok(AnsiEvent::ResetBoldMode)
         } else if code == 38 || code == 48 {
             self.try_parse_graphics_color(code, &mut it)
+        } else if code == 39 {
+            assert_no_more_items!(it);
+            Ok(AnsiEvent::DefaultForeground)
+        } else if code == 49 {
+            assert_no_more_items!(it);
+            Ok(AnsiEvent::DefaultBackground)
         } else {
             Err(())
         }
@@ -199,7 +244,8 @@ impl AnsiEscapeParser {
             blue: 0,
         };
 
-        // 2 - rgb color, 5 - 256 colors
+        // 2  - rgb color
+        // 5  - 256 colors
         let mode: u8 = next_value!(it);
 
         if mode == 2 {
@@ -311,6 +357,15 @@ mod tests {
 
         let events = test_single_event!("\u{1b}[22m");
         assert_matches!(events[0], AnsiEvent::ResetBoldMode);
+    }
+
+    #[test]
+    pub fn test_default_colors() {
+        let events = test_single_event!("\u{1b}[39m");
+        assert_matches!(events[0], AnsiEvent::DefaultForeground);
+
+        let events = test_single_event!("\u{1b}[49m");
+        assert_matches!(events[0], AnsiEvent::DefaultBackground);
     }
 
     #[test]

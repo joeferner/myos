@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use ansi_escape::{Color, codes::Ansi};
 use bootloader_api::BootInfo;
 
 use console::console_init;
@@ -27,8 +28,16 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     println!(
         "this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string"
     );
-    println!("\u{1b}[38;5;15m\u{1b}[48;2;255;0;0mHello\u{1b}[0m");
-    println!("\u{1b}[10;10H\u{1b}[1mHello\u{1b}[22m From 10,10");
+    println!(
+        "{}",
+        Ansi::fg(Color::white(), &Ansi::bg(Color::red(), "Hello world!"))
+    );
+
+    println!(
+        "{}{} From 10,10",
+        Ansi::move_cursor(10, 10),
+        Ansi::bold("Hello")
+    );
 
     loop {}
 }
