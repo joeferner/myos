@@ -11,7 +11,10 @@ pub struct FontData<const N: usize>(pub [u8; N]);
 #[macro_export]
 macro_rules! include_font_data {
     ($variable_name:ident, $source_file_name:expr) => {
-        pub const $variable_name: &FontData<{ include_bytes!($source_file_name).len() }> = &FontData::<{ include_bytes!($source_file_name).len() }>(*include_bytes!($source_file_name));
+        pub const $variable_name: &FontData<{ include_bytes!($source_file_name).len() }> =
+            &FontData::<{ include_bytes!($source_file_name).len() }>(*include_bytes!(
+                $source_file_name
+            ));
     };
 }
 
@@ -88,10 +91,7 @@ impl<'a> Font<'a> {
     where
         F: FnMut(usize, usize, bool),
     {
-        let mut ch_utf8_bytes: [u8; 8] = [0; 8];
-        let encoded_len = ch.encode_utf8(&mut ch_utf8_bytes).len();
-
-        let glyph = self.find_glyph(&ch_utf8_bytes[..encoded_len]);
+        let glyph = self.find_glyph(ch);
         if let Some(glyph) = glyph {
             let glyph_offset = glyph * self.glyph_size;
             let glyph_end = glyph_offset + self.glyph_size;
@@ -118,12 +118,13 @@ impl<'a> Font<'a> {
         }
     }
 
-    fn find_glyph(&self, ch: &[u8]) -> Option<usize> {
+    fn find_glyph(&self, ch: char) -> Option<usize> {
         if let Some(unicode_table) = &self.unicode_table {
-            Font::find_glyph_unicode_table(unicode_table, ch)
+            let mut ch_utf8_bytes: [u8; 8] = [0; 8];
+            let encoded_len = ch.encode_utf8(&mut ch_utf8_bytes).len();
+            Font::find_glyph_unicode_table(unicode_table, &ch_utf8_bytes[..encoded_len])
         } else {
-            // TODO handle non-unicode fonts
-            panic!("unicode_table not present");
+            Some(ch as usize)
         }
     }
 
@@ -141,7 +142,10 @@ impl<'a> Font<'a> {
 mod tests {
     use super::*;
 
-    include_font_data!(DEFAULT_8X16, "./bin/Tamsyn8x16b.psf");
+    include_font_data!(TAMSYN_PSF1, "./bin/Tamsyn8x16b.psf1");
+    include_font_data!(TAMSYN_NOTABLE_PSF1, "./bin/Tamsyn8x16b.notable.psf1");
+    include_font_data!(TAMSYN_PSF2, "./bin/Tamsyn8x16b.psf2");
+    include_font_data!(TAMSYN_NOTABLE_PSF2, "./bin/Tamsyn8x16b.notable.psf2");
 
     fn render_char_to_buffer(font: &Font, ch: char, stride: usize, buffer: &mut [u8]) {
         font.render_char(ch, |x, y, v| {
@@ -150,31 +154,52 @@ mod tests {
         });
     }
 
+    macro_rules! test_psf {
+        ($font_data:ident) => {
+            let mut buffer: [u8; 16 * 8] = [0; 16 * 8];
+            let font = Font::new($font_data);
+            assert_eq!(font.height, 16);
+            assert_eq!(font.width, 8);
+            render_char_to_buffer(&font, 'R', 8, &mut buffer);
+            let expected: [u8; 16 * 8] = [
+                0, 0, 0, 0, 0, 0, 0, 0, // 0
+                0, 0, 0, 0, 0, 0, 0, 0, // 1
+                0, 0, 0, 0, 0, 0, 0, 0, // 2
+                0, 1, 1, 1, 1, 1, 0, 0, // 3
+                0, 1, 1, 0, 0, 1, 1, 0, // 4
+                0, 1, 1, 0, 0, 1, 1, 0, // 5
+                0, 1, 1, 0, 0, 1, 1, 0, // 6
+                0, 1, 1, 1, 1, 1, 0, 0, // 7
+                0, 1, 1, 0, 1, 1, 0, 0, // 8
+                0, 1, 1, 0, 0, 1, 1, 0, // 9
+                0, 1, 1, 0, 0, 1, 1, 0, // 10
+                0, 1, 1, 0, 0, 1, 1, 0, // 11
+                0, 0, 0, 0, 0, 0, 0, 0, // 12
+                0, 0, 0, 0, 0, 0, 0, 0, // 13
+                0, 0, 0, 0, 0, 0, 0, 0, // 14
+                0, 0, 0, 0, 0, 0, 0, 0, // 15
+            ];
+            assert_eq!(buffer, expected);
+        };
+    }
+
+    #[test]
+    fn test_psf1_without_unicode_table() {
+        test_psf!(TAMSYN_NOTABLE_PSF1);
+    }
+
+    #[test]
+    fn test_psf1_with_unicode_table() {
+        test_psf!(TAMSYN_PSF1);
+    }
+
+    #[test]
+    fn test_psf2_without_unicode_table() {
+        test_psf!(TAMSYN_NOTABLE_PSF2);
+    }
+
     #[test]
     fn test_psf2_with_unicode_table() {
-        let mut buffer: [u8; 16 * 8] = [0; 16 * 8];
-        let font = Font::new(DEFAULT_8X16);
-        assert_eq!(font.height, 16);
-        assert_eq!(font.width, 8);
-        render_char_to_buffer(&font, 'R', 8, &mut buffer);
-        let expected: [u8; 16 * 8] = [
-            0, 0, 0, 0, 0, 0, 0, 0, // 0
-            0, 0, 0, 0, 0, 0, 0, 0, // 1
-            0, 0, 0, 0, 0, 0, 0, 0, // 2
-            0, 1, 1, 1, 1, 1, 0, 0, // 3
-            0, 1, 1, 0, 0, 1, 1, 0, // 4
-            0, 1, 1, 0, 0, 1, 1, 0, // 5
-            0, 1, 1, 0, 0, 1, 1, 0, // 6
-            0, 1, 1, 1, 1, 1, 0, 0, // 7
-            0, 1, 1, 0, 1, 1, 0, 0, // 8
-            0, 1, 1, 0, 0, 1, 1, 0, // 9
-            0, 1, 1, 0, 0, 1, 1, 0, // 10
-            0, 1, 1, 0, 0, 1, 1, 0, // 11
-            0, 0, 0, 0, 0, 0, 0, 0, // 12
-            0, 0, 0, 0, 0, 0, 0, 0, // 13
-            0, 0, 0, 0, 0, 0, 0, 0, // 14
-            0, 0, 0, 0, 0, 0, 0, 0  // 15
-        ];
-        assert_eq!(buffer, expected);
+        test_psf!(TAMSYN_PSF2);
     }
 }

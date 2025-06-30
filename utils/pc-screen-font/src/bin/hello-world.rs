@@ -1,6 +1,6 @@
 use pc_screen_font::{Font, FontData, include_font_data};
 
-include_font_data!(DEFAULT_8X16, "Tamsyn8x16b.psf");
+include_font_data!(DEFAULT_8X16, "./Tamsyn8x16b.psf2");
 
 fn main() {
     let font = Font::new(DEFAULT_8X16);
