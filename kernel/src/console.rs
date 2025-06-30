@@ -45,15 +45,28 @@ static CONSOLE: OnceCell<Mutex<Console<MyFrameBuffer>>> = OnceCell::uninit();
 const DEFAULT_8X16: &[u8] = include_bytes!("./resources/Tamsyn8x16r.psf");
 const DEFAULT_8X16_BOLD: &[u8] = include_bytes!("./resources/Tamsyn8x16b.psf");
 
-pub fn console_init(framebuffer: bootloader_api::info::FrameBuffer) -> Result<(), TryInitError> {
+#[derive(Debug, Copy, Clone)]
+pub enum ConsoleInitError {
+    #[allow(dead_code)]
+    TryInitError(TryInitError),
+    #[allow(dead_code)]
+    PcFontError(pc_screen_font::PcFontError),
+}
+
+pub fn console_init(
+    framebuffer: bootloader_api::info::FrameBuffer,
+) -> Result<(), ConsoleInitError> {
     let framebuffer = FrameBufferDriver::new(MyFrameBuffer::new(framebuffer));
-    let font = Font::new(DEFAULT_8X16);
-    let bold_font = Font::new(DEFAULT_8X16_BOLD);
-    CONSOLE.try_init_once(|| {
-        let mut console = Console::new(framebuffer, font, bold_font);
-        console.clear();
-        Mutex::new(console)
-    })
+    let font = Font::parse(DEFAULT_8X16).map_err(|err| ConsoleInitError::PcFontError(err))?;
+    let bold_font =
+        Font::parse(DEFAULT_8X16_BOLD).map_err(|err| ConsoleInitError::PcFontError(err))?;
+    CONSOLE
+        .try_init_once(|| {
+            let mut console = Console::new(framebuffer, font, bold_font);
+            console.clear();
+            Mutex::new(console)
+        })
+        .map_err(|err| ConsoleInitError::TryInitError(err))
 }
 
 #[macro_export]

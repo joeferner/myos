@@ -214,7 +214,7 @@ impl<'a> Font<'a> {
     fn find_glyph_unicode_table_psf1(unicode_table: &[u8], ch: &[u8]) -> Option<usize> {
         // TODO handle found_fffe, multiple unicode characters can exist in a single entry
         // fffe denotes this
-        let mut found_fffe = false;
+        let mut _found_fffe = false;
         let mut glyph_idx = 0;
         let mut it = unicode_table.iter();
         loop {
@@ -227,7 +227,7 @@ impl<'a> Font<'a> {
                 }
 
                 if *high == 0xff && *low == 0xfe {
-                    found_fffe = true;
+                    _found_fffe = true;
                 }
 
                 if ch.len() == 1 && *high == 0x00 && ch[0] == *low {
