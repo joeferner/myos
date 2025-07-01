@@ -14,6 +14,10 @@ pub const SERIAL1_ADDR: u16 = 0x03f8;
 
 static SERIAL1: OnceCell<Mutex<SerialPort>> = OnceCell::uninit();
 
+/// Initialize serial 1
+/// 
+/// # Safety
+/// Caller must ensure the serial port is available to be initialized
 pub unsafe fn serial1_init() -> Result<(), TryInitError> {
     SERIAL1.try_init_once(|| {
         let serial_port = unsafe { SerialPort::new(SERIAL1_ADDR) };

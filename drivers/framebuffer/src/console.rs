@@ -72,7 +72,7 @@ impl<TFrameBuffer: FrameBuffer> Console<TFrameBuffer> {
         };
 
         self.driver
-            .draw_char(ch, pos, &font, self.fg_color, self.bg_color);
+            .draw_char(ch, pos, font, self.fg_color, self.bg_color);
         self.column += 1;
         if self.column >= self.get_columns() {
             self.next_line();

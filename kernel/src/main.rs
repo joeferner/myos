@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use ansi_escape::{Ansi, Color};
-use bootloader_api::{config::Mapping, info::Optional, BootInfo, BootloaderConfig};
+use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping, info::Optional};
 
 use alloc::boxed::Box;
 use console::console_init;
@@ -39,7 +39,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     if let Optional::Some(physical_memory_offset) = boot_info.physical_memory_offset {
         let phys_mem_offset = VirtAddr::new(physical_memory_offset);
         let mut mapper = unsafe { memory::init(phys_mem_offset) };
-        let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
+        let mut frame_allocator =
+            unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
         allocator::init_heap(&mut mapper, &mut frame_allocator)
             .expect("heap initialization failed");
         println_status!("OK", "Allocator initialized.");
@@ -48,7 +49,9 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     let x = Box::new(41);
     println!("{}", x);
 
-    loop {}
+    loop {
+        core::hint::spin_loop();
+    }
 }
 
 #[panic_handler]

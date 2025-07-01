@@ -57,16 +57,15 @@ pub fn console_init(
     framebuffer: bootloader_api::info::FrameBuffer,
 ) -> Result<(), ConsoleInitError> {
     let framebuffer = FrameBufferDriver::new(MyFrameBuffer::new(framebuffer));
-    let font = Font::parse(DEFAULT_8X16).map_err(|err| ConsoleInitError::PcFontError(err))?;
-    let bold_font =
-        Font::parse(DEFAULT_8X16_BOLD).map_err(|err| ConsoleInitError::PcFontError(err))?;
+    let font = Font::parse(DEFAULT_8X16).map_err(ConsoleInitError::PcFontError)?;
+    let bold_font = Font::parse(DEFAULT_8X16_BOLD).map_err(ConsoleInitError::PcFontError)?;
     CONSOLE
         .try_init_once(|| {
             let mut console = Console::new(framebuffer, font, bold_font);
             console.clear();
             Mutex::new(console)
         })
-        .map_err(|err| ConsoleInitError::TryInitError(err))
+        .map_err(ConsoleInitError::TryInitError)
 }
 
 #[macro_export]

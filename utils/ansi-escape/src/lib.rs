@@ -90,15 +90,15 @@ impl Display for Ansi {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Ansi::CursorHome => write!(f, "\u{1b}[H"),
-            Ansi::CursorTo(line, column) => write!(f, "\u{1b}[{};{}H", line, column),
-            Ansi::CursorUp(n) => write!(f, "\u{1b}[{}A", n),
-            Ansi::CursorDown(n) => write!(f, "\u{1b}[{}B", n),
-            Ansi::CursorRight(n) => write!(f, "\u{1b}[{}C", n),
-            Ansi::CursorLeft(n) => write!(f, "\u{1b}[{}D", n),
+            Ansi::CursorTo(line, column) => write!(f, "\u{1b}[{line};{column}H"),
+            Ansi::CursorUp(n) => write!(f, "\u{1b}[{n}A"),
+            Ansi::CursorDown(n) => write!(f, "\u{1b}[{n}B"),
+            Ansi::CursorRight(n) => write!(f, "\u{1b}[{n}C"),
+            Ansi::CursorLeft(n) => write!(f, "\u{1b}[{n}D"),
             Ansi::ResetAllModes => write!(f, "\u{1b}[0m"),
             Ansi::Bold => write!(f, "\u{1b}[1m"),
             Ansi::ResetBold => write!(f, "\u{1b}[22m"),
-            Ansi::Char(ch) => write!(f, "{}", ch),
+            Ansi::Char(ch) => write!(f, "{ch}"),
             Ansi::ForegroundColor(color) => write!(
                 f,
                 "\u{1b}[38;2;{};{};{}m",
@@ -132,10 +132,10 @@ impl AnsiEscapeParser {
     }
 
     pub fn push(&mut self, ch: char) -> Result<Option<Ansi>, AnsiEscapeParserError> {
-        if ch == ESCAPE || self.buffer.len() > 0 {
+        if ch == ESCAPE || !self.buffer.is_empty() {
             // this check should not be need since we should have failed and cleared last push
             // but to be safe we'll keep in here
-            if let Err(_) = self.buffer.push(ch) {
+            if self.buffer.push(ch).is_err() {
                 let result = Err(AnsiEscapeParserError::InvalidEscapeSequence(
                     self.buffer.clone(),
                 ));
@@ -293,6 +293,12 @@ impl AnsiEscapeParser {
         } else {
             Err(())
         }
+    }
+}
+
+impl Default for AnsiEscapeParser {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

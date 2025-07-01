@@ -56,6 +56,7 @@ impl SerialPort {
 
     /// Creates a new serial port interface on the given I/O base port.
     ///
+    /// # Safety
     /// This function is unsafe because the caller must ensure that the given base address
     /// really points to a serial port device and that the caller has the necessary rights
     /// to perform the I/O operation.
@@ -99,7 +100,7 @@ impl SerialPort {
     }
 }
 
-impl<'a> core::fmt::Write for SerialPort {
+impl core::fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         for byte in s.bytes() {
             self.send(byte);

@@ -11,6 +11,7 @@ pub struct LockedAllocator {
 }
 
 impl LockedAllocator {
+    #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             inner: Mutex::new(Allocator::new()),
@@ -19,6 +20,7 @@ impl LockedAllocator {
 
     /// Initializes the bump allocator with the given heap bounds.
     ///
+    /// # Safety
     /// This method is unsafe because the caller must ensure that the given
     /// memory range is unused. Also, this method must be called only once.
     pub unsafe fn init(&self, heap_start: usize, heap_size: usize) {
@@ -28,11 +30,11 @@ impl LockedAllocator {
 
 unsafe impl GlobalAlloc for LockedAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        unsafe { self.inner.lock().alloc(layout) }
+        self.inner.lock().alloc(layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        unsafe { self.inner.lock().dealloc(ptr, layout) }
+        self.inner.lock().dealloc(ptr, layout)
     }
 }
 
@@ -43,7 +45,7 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Allocator {
             heap_start: 0,
             heap_end: 0,
@@ -53,6 +55,7 @@ impl Allocator {
 
     /// Initializes the bump allocator with the given heap bounds.
     ///
+    /// # Safety
     /// This method is unsafe because the caller must ensure that the given
     /// memory range is unused. Also, this method must be called only once.
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
@@ -61,15 +64,14 @@ impl Allocator {
         self.next = heap_start;
     }
 
-    pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
+    pub fn alloc(&mut self, layout: Layout) -> *mut u8 {
         // TODO alignment and bounds check
         let alloc_start = self.next;
         self.next = alloc_start + layout.size();
         alloc_start as *mut u8
     }
 
-    pub unsafe fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {
-    }
+    pub fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {}
 }
 
 #[cfg(test)]

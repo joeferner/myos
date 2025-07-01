@@ -163,7 +163,7 @@ impl<TFrameBuffer: FrameBuffer> FrameBufferDriver<TFrameBuffer> {
                 pixel_buffer[2] = color.red;
             }
             PixelFormat::U8 => {
-                if pixel_buffer.len() < 1 {
+                if pixel_buffer.is_empty() {
                     return;
                 }
                 // use a simple average-based grayscale transform
@@ -188,7 +188,7 @@ impl<TFrameBuffer: FrameBuffer> FrameBufferDriver<TFrameBuffer> {
         let buffer = self.framebuffer.buffer_mut();
 
         if offset < 0 {
-            let offset: usize = offset.abs() as usize;
+            let offset: usize = offset.unsigned_abs();
             let from_offset = {
                 let line_offset = offset * stride;
                 line_offset * bytes_per_pixel

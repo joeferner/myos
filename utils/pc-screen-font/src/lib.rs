@@ -7,8 +7,8 @@
 
 use core::mem::size_of;
 use zerocopy::{
-    byteorder::little_endian::{U16, U32},
     FromBytes, Immutable, KnownLayout, TryFromBytes, Unaligned,
+    byteorder::little_endian::{U16, U32},
 };
 
 const PSF1_FONT_MAGIC: u16 = 0x0436;
@@ -84,10 +84,10 @@ pub struct Font<'a> {
 
 impl<'a> Font<'a> {
     pub fn parse(data: &'a [u8]) -> Result<Self, PcFontError> {
-        if let Ok(header) = Psf1Header::try_ref_from_bytes(&data[0..size_of::<Psf1Header>()]) {
-            if let Ok(font) = Font::new_from_psf1(header, data) {
-                return Ok(font);
-            }
+        if let Ok(header) = Psf1Header::try_ref_from_bytes(&data[0..size_of::<Psf1Header>()])
+            && let Ok(font) = Font::new_from_psf1(header, data)
+        {
+            return Ok(font);
         }
 
         if let Ok(header) = Psf2Header::try_ref_from_bytes(&data[0..size_of::<Psf2Header>()]) {
