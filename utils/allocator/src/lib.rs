@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::alloc::{GlobalAlloc, Layout};
-use core::ptr::null_mut;
+// TODO use core::ptr::null_mut;
 use spin::Mutex;
 
 pub struct LockedAllocator {
@@ -36,10 +36,10 @@ unsafe impl GlobalAlloc for LockedAllocator {
     }
 }
 
-
 pub struct Allocator {
     heap_start: usize,
     heap_end: usize,
+    next: usize,
 }
 
 impl Allocator {
@@ -47,6 +47,7 @@ impl Allocator {
         Allocator {
             heap_start: 0,
             heap_end: 0,
+            next: 0,
         }
     }
 
@@ -57,15 +58,48 @@ impl Allocator {
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
         self.heap_start = heap_start;
         self.heap_end = heap_start + heap_size;
+        self.next = heap_start;
+    }
+
+    pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
+        // TODO alignment and bounds check
+        let alloc_start = self.next;
+        self.next = alloc_start + layout.size();
+        alloc_start as *mut u8
+    }
+
+    pub unsafe fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {
     }
 }
 
-unsafe impl GlobalAlloc for Allocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        self.heap_start as *mut u8
-    }
+#[cfg(test)]
+mod tests {
+    use assert_hex::assert_eq_hex;
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        panic!("dealloc should be never called")
+    use super::*;
+
+    #[test]
+    pub fn test_simple() {
+        unsafe {
+            const HEAP_SIZE: usize = 100;
+            let heap: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+            let mut alloc = Allocator::new();
+            alloc.init(&heap as *const [u8; HEAP_SIZE] as usize, HEAP_SIZE);
+
+            let first_alloc = {
+                let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
+                *m = 0xdeadbeef;
+                m
+            };
+
+            let second_alloc = {
+                let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
+                *m = 0xcafebabe;
+                m
+            };
+
+            assert_eq_hex!(0xdeadbeef, *first_alloc);
+            assert_eq_hex!(0xcafebabe, *second_alloc);
+        }
     }
 }
