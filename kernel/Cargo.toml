@@ -8,10 +8,12 @@ bootloader_api = { workspace = true }
 conquer-once = { workspace = true }
 pc-screen-font = { path = "../utils/pc-screen-font" }
 ansi-escape = { path = "../utils/ansi-escape" }
+allocator = { path = "../utils/allocator" }
 framebuffer = { path = "../drivers/framebuffer" }
 serial-port = { path = "../drivers/serial-port" }
 common = { path = "../common" }
 spin = { workspace = true }
+x86_64 = { workspace = true }
 
 [profile.dev]
 panic = "abort"

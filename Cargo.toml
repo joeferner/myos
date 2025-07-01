@@ -9,7 +9,7 @@ members = [
     "common",
     "drivers/framebuffer",
     "drivers/serial-port",
-    "kernel",
+    "kernel", "utils/allocator",
     "utils/ansi-escape",
     "utils/pc-screen-font",
 ]
@@ -23,6 +23,7 @@ bootloader_api = "0.11.10"
 conquer-once = { version = "0.4.0", default-features = false }
 spin = "0.10.0"
 x86 = "0.52.0"
+x86_64 = "0.15.2"
 heapless = "0.8.0"
 zune-core = "0.4.12"
 zune-ppm = "0.4.0"

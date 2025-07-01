@@ -80,6 +80,17 @@ macro_rules! println {
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
 }
 
+#[macro_export]
+macro_rules! println_status {
+    ($status:expr, $($arg:tt)*) => ($crate::print!(
+        "[  {}{}{}  ] {}\n",
+        Ansi::ForegroundColor(Color::green()),
+        $status,
+        Ansi::DefaultForeground,
+        format_args!($($arg)*)
+    ));
+}
+
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
     let _ = serial_print_args(args);

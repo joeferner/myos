@@ -1,15 +1,29 @@
 #![no_std]
 #![no_main]
 
-use ansi_escape::{Ansi, Color};
-use bootloader_api::BootInfo;
+extern crate alloc;
 
+use ansi_escape::{Ansi, Color};
+use bootloader_api::{config::Mapping, info::Optional, BootInfo, BootloaderConfig};
+
+use alloc::boxed::Box;
 use console::console_init;
 use serial_port::serial1_init;
+use x86_64::VirtAddr;
 
+use crate::memory::BootInfoFrameAllocator;
+
+mod allocator;
 mod console;
+mod memory;
 
-bootloader_api::entry_point!(kernel_main);
+const BOOTLOADER_CONFIG: BootloaderConfig = {
+    let mut config = BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::FixedAddress(0x0000_6000_0000_0000));
+    config
+};
+
+bootloader_api::entry_point!(kernel_main, config = &BOOTLOADER_CONFIG);
 
 fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
     unsafe { serial1_init() }.expect("serial1 failed to init");
@@ -19,29 +33,20 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
 
     if let Some(framebuffer) = framebuffer {
         console_init(framebuffer).expect("console failed to init");
+        println_status!("OK", "Console initialized.");
     }
 
-    for n in 0..80 {
-        println!("line {n}");
+    if let Optional::Some(physical_memory_offset) = boot_info.physical_memory_offset {
+        let phys_mem_offset = VirtAddr::new(physical_memory_offset);
+        let mut mapper = unsafe { memory::init(phys_mem_offset) };
+        let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_regions) };
+        allocator::init_heap(&mut mapper, &mut frame_allocator)
+            .expect("heap initialization failed");
+        println_status!("OK", "Allocator initialized.");
     }
-    println!("Hello World 2!");
-    println!(
-        "this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string this is a really long string"
-    );
-    println!(
-        "{}{}Hello world!{}{}",
-        Ansi::ForegroundColor(Color::white()),
-        Ansi::BackgroundColor(Color::red()),
-        Ansi::DefaultForeground,
-        Ansi::DefaultBackground
-    );
 
-    println!(
-        "{}{}Hello{} From 10,10",
-        Ansi::CursorTo(10, 10),
-        Ansi::Bold,
-        Ansi::ResetBold
-    );
+    let x = Box::new(41);
+    println!("{}", x);
 
     loop {}
 }
