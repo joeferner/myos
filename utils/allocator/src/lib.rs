@@ -4,6 +4,7 @@ extern crate alloc;
 
 mod linked_list_allocator;
 mod locked_allocator;
+mod bump_allocator;
 #[cfg(test)]
 mod test_allocator;
 
@@ -11,6 +12,7 @@ use core::alloc::Layout;
 
 pub use linked_list_allocator::LinkedListAllocator;
 pub use locked_allocator::LockedAllocator;
+pub use bump_allocator::BumpAllocator;
 
 pub trait Allocator {
     fn alloc(&mut self, layout: Layout) -> *mut u8;
