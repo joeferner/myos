@@ -34,10 +34,8 @@ impl TestAllocator {
 
     pub fn init<T: Allocator>(&self, allocator: &T) {
         let mut inner = self.inner.lock();
-        let z = allocator as *const T as usize;
-        inner.allocator = z;
-        let alloc = T::alloc as *const () as usize;
-        inner.alloc = alloc;
+        inner.allocator = allocator as *const T as usize;
+        inner.alloc = T::alloc as *const () as usize;
         inner.dealloc = T::dealloc as *const () as usize;
     }
 }
