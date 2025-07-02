@@ -1,43 +1,30 @@
-use core::alloc::Layout;
+use core::{alloc::Layout, usize};
 
 use crate::Allocator;
 
-pub struct BumpAllocator {
-    heap_start: usize,
-    heap_end: usize,
+pub struct BumpAllocator<const N: usize> {
+    heap: [u8; N],
     next: usize,
 }
 
-impl BumpAllocator {
+impl<const N: usize> BumpAllocator<N> {
     pub const fn new() -> Self {
         BumpAllocator {
-            heap_start: 0,
-            heap_end: 0,
+            heap: [0; N],
             next: 0,
         }
     }
-
-    /// Initializes the bump allocator with the given heap bounds.
-    ///
-    /// # Safety
-    /// This method is unsafe because the caller must ensure that the given
-    /// memory range is unused. Also, this method must be called only once.
-    pub const unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        self.heap_start = heap_start;
-        self.heap_end = heap_start + heap_size;
-        self.next = heap_start;
-    }
 }
 
-impl Allocator for BumpAllocator {
+impl<const N: usize> Allocator for BumpAllocator<N> {
     fn alloc(&mut self, layout: Layout) -> *mut u8 {
         // TODO alignment and bounds check
         // TODO handle out of memory
-        let alloc_start = self.next;
-        self.next = alloc_start + layout.size();
+        let heap = self.heap.as_ptr() as usize;
+        let alloc_start = heap + self.next;
+        self.next = self.next + layout.size();
         alloc_start as *mut u8
     }
 
-    fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {
-    }
+    fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {}
 }
