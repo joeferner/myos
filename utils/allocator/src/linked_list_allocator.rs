@@ -53,10 +53,7 @@ mod tests {
     pub fn test_simple() {
         let mut allocator = LinkedListAllocator::new();
         unsafe {
-            allocator.init(
-                &TEST_MEMORY as *const [u8; TEST_MEMORY_SIZE] as usize,
-                TEST_MEMORY_SIZE,
-            );
+            allocator.init(&TEST_MEMORY as *const [u8; TEST_MEMORY_SIZE] as usize, TEST_MEMORY_SIZE);
         }
         TEST_ALLOCATOR.init(&allocator);
 

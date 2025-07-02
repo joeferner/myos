@@ -4,8 +4,8 @@ use spin::Mutex;
 
 use crate::{Allocator, BumpAllocator, LockedAllocator};
 
-type AllocFn = fn(allocator: usize, layout: Layout) -> *mut u8;
-type DeallocFn = fn(allocator: usize, ptr: *mut u8, layout: Layout);
+type AllocFn = fn(allocator: *const (), layout: Layout) -> *mut u8;
+type DeallocFn = fn(allocator: *const (), ptr: *mut u8, layout: Layout);
 
 const FALLBACK_TEST_MEMORY_SIZE: usize = 1 * 1024 * 1024;
 static FALLBACK_ALLOCATOR: LockedAllocator<BumpAllocator<FALLBACK_TEST_MEMORY_SIZE>> =
@@ -34,9 +34,11 @@ impl TestAllocator {
 
     pub fn init<T: Allocator>(&self, allocator: &T) {
         let mut inner = self.inner.lock();
-        inner.allocator = (allocator as *const T) as usize;
-        inner.alloc = T::alloc as usize;
-        inner.dealloc = T::dealloc as usize;
+        let z = allocator as *const T as usize;
+        inner.allocator = z;
+        let alloc = T::alloc as *const () as usize;
+        inner.alloc = alloc;
+        inner.dealloc = T::dealloc as *const () as usize;
     }
 }
 
@@ -47,8 +49,10 @@ unsafe impl GlobalAlloc for TestAllocator {
             return unsafe { FALLBACK_ALLOCATOR.alloc(layout) };
         }
 
-        let alloc_fn = inner.alloc as *const AllocFn;
-        unsafe { (*alloc_fn)(inner.allocator, layout) }
+        let allocator = inner.allocator as *const ();
+        let alloc = inner.alloc as *const ();
+        let alloc_fn: AllocFn = unsafe { core::mem::transmute(alloc) };
+        alloc_fn(allocator, layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
@@ -58,7 +62,9 @@ unsafe impl GlobalAlloc for TestAllocator {
             return unsafe { FALLBACK_ALLOCATOR.dealloc(ptr, layout) };
         }
 
-        let dealloc_fn = inner.dealloc as *const DeallocFn;
-        unsafe { (*dealloc_fn)(inner.allocator, ptr, layout) }
+        let allocator = inner.allocator as *const ();
+        let dealloc = inner.dealloc as *const ();
+        let dealloc_fn: DeallocFn = unsafe { core::mem::transmute(dealloc) };
+        dealloc_fn(allocator, ptr, layout)
     }
 }
