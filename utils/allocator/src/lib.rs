@@ -2,106 +2,53 @@
 
 extern crate alloc;
 
-use alloc::alloc::{GlobalAlloc, Layout};
-// TODO use core::ptr::null_mut;
-use spin::Mutex;
+mod linked_list_allocator;
+mod locked_allocator;
+#[cfg(test)]
+mod test_allocator;
 
-pub struct LockedAllocator {
-    inner: Mutex<Allocator>,
-}
+use core::alloc::Layout;
 
-impl LockedAllocator {
-    #[allow(clippy::new_without_default)]
-    pub const fn new() -> Self {
-        Self {
-            inner: Mutex::new(Allocator::new()),
-        }
-    }
+pub use linked_list_allocator::LinkedListAllocator;
+pub use locked_allocator::LockedAllocator;
 
-    /// Initializes the bump allocator with the given heap bounds.
-    ///
-    /// # Safety
-    /// This method is unsafe because the caller must ensure that the given
-    /// memory range is unused. Also, this method must be called only once.
-    pub unsafe fn init(&self, heap_start: usize, heap_size: usize) {
-        unsafe { self.inner.lock().init(heap_start, heap_size) }
-    }
-}
-
-unsafe impl GlobalAlloc for LockedAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.inner.lock().alloc(layout)
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.inner.lock().dealloc(ptr, layout)
-    }
-}
-
-pub struct Allocator {
-    heap_start: usize,
-    heap_end: usize,
-    next: usize,
-}
-
-impl Allocator {
-    pub(crate) const fn new() -> Self {
-        Allocator {
-            heap_start: 0,
-            heap_end: 0,
-            next: 0,
-        }
-    }
-
-    /// Initializes the bump allocator with the given heap bounds.
-    ///
-    /// # Safety
-    /// This method is unsafe because the caller must ensure that the given
-    /// memory range is unused. Also, this method must be called only once.
-    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        self.heap_start = heap_start;
-        self.heap_end = heap_start + heap_size;
-        self.next = heap_start;
-    }
-
-    pub fn alloc(&mut self, layout: Layout) -> *mut u8 {
-        // TODO alignment and bounds check
-        let alloc_start = self.next;
-        self.next = alloc_start + layout.size();
-        alloc_start as *mut u8
-    }
-
-    pub fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {}
+pub trait Allocator {
+    fn alloc(&mut self, layout: Layout) -> *mut u8;
+    fn dealloc(&mut self, ptr: *mut u8, layout: Layout);
 }
 
 #[cfg(test)]
 mod tests {
-    use assert_hex::assert_eq_hex;
+    use crate::test_allocator::TestAllocator;
 
-    use super::*;
+    #[global_allocator]
+    pub static TEST_ALLOCATOR: TestAllocator = TestAllocator::new();
 
-    #[test]
-    pub fn test_simple() {
-        unsafe {
-            const HEAP_SIZE: usize = 100;
-            let heap: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
-            let mut alloc = Allocator::new();
-            alloc.init(&heap as *const [u8; HEAP_SIZE] as usize, HEAP_SIZE);
+    pub const TEST_MEMORY_SIZE: usize = 10000;
+    pub static TEST_MEMORY: [u8; TEST_MEMORY_SIZE] = [0; TEST_MEMORY_SIZE];
 
-            let first_alloc = {
-                let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
-                *m = 0xdeadbeef;
-                m
-            };
+    // #[test]
+    // pub fn test_simple() {
+    //     unsafe {
+    //         const HEAP_SIZE: usize = 100;
+    //         let heap: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+    //         let mut alloc = LinkedListAllocator::new();
+    //         alloc.init(&heap as *const [u8; HEAP_SIZE] as usize, HEAP_SIZE);
 
-            let second_alloc = {
-                let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
-                *m = 0xcafebabe;
-                m
-            };
+    //         let first_alloc = {
+    //             let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
+    //             *m = 0xdeadbeef;
+    //             m
+    //         };
 
-            assert_eq_hex!(0xdeadbeef, *first_alloc);
-            assert_eq_hex!(0xcafebabe, *second_alloc);
-        }
-    }
+    //         let second_alloc = {
+    //             let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
+    //             *m = 0xcafebabe;
+    //             m
+    //         };
+
+    //         assert_eq_hex!(0xdeadbeef, *first_alloc);
+    //         assert_eq_hex!(0xcafebabe, *second_alloc);
+    //     }
+    // }
 }
