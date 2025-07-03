@@ -18,8 +18,10 @@ impl<const N: usize> BumpAllocator<N> {
 
 impl<const N: usize> Allocator for BumpAllocator<N> {
     fn alloc(&mut self, layout: Layout) -> *mut u8 {
-        // TODO alignment and bounds check
-        // TODO handle out of memory
+        // TODO alignment check
+        if self.next.saturating_add(layout.size()) > self.heap.len() {
+            return core::ptr::null_mut();
+        }
         let heap = self.heap.as_ptr() as usize;
         let alloc_start = heap + self.next;
         self.next = self.next + layout.size();

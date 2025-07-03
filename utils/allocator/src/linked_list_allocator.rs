@@ -50,14 +50,19 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(static_mut_refs)]
     pub fn test_simple() {
         let mut allocator = LinkedListAllocator::new();
         unsafe {
-            allocator.init(&TEST_MEMORY as *const [u8; TEST_MEMORY_SIZE] as usize, TEST_MEMORY_SIZE);
+            TEST_MEMORY[0] = 0xde;
+            TEST_MEMORY[1] = 0xad;
+            allocator.init(TEST_MEMORY.as_ptr() as usize, TEST_MEMORY_SIZE);
         }
         TEST_ALLOCATOR.init(&allocator);
-
-        let b = Box::new(42);
-        assert_eq!(42, *b);
+        {
+            let b = Box::new(42);
+            assert_eq!(42, *b);
+        }
+        TEST_ALLOCATOR.uninit();
     }
 }

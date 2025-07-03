@@ -26,8 +26,8 @@ mod tests {
     #[global_allocator]
     pub static TEST_ALLOCATOR: TestAllocator = TestAllocator::new();
 
-    pub const TEST_MEMORY_SIZE: usize = 10000;
-    pub static TEST_MEMORY: [u8; TEST_MEMORY_SIZE] = [0; TEST_MEMORY_SIZE];
+    pub const TEST_MEMORY_SIZE: usize = 100000;
+    pub static mut TEST_MEMORY: [u8; TEST_MEMORY_SIZE] = [0; TEST_MEMORY_SIZE];
 
     // #[test]
     // pub fn test_simple() {

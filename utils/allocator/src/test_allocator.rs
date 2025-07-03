@@ -38,6 +38,13 @@ impl TestAllocator {
         inner.alloc = T::alloc as *const () as usize;
         inner.dealloc = T::dealloc as *const () as usize;
     }
+
+    pub fn uninit(&self) {
+        let mut inner = self.inner.lock();
+        inner.allocator = 0;
+        inner.alloc = 0;
+        inner.dealloc = 0;
+    }
 }
 
 unsafe impl GlobalAlloc for TestAllocator {
