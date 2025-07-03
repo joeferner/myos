@@ -1,31 +1,25 @@
 #![no_std]
+#![feature(allocator_api)]
 
 extern crate alloc;
 
 mod linked_list_allocator;
 mod locked_allocator;
 mod bump_allocator;
-#[cfg(test)]
-mod test_allocator;
 
-use core::alloc::Layout;
+use core::{alloc::Layout, ptr::NonNull};
 
 pub use linked_list_allocator::LinkedListAllocator;
 pub use locked_allocator::LockedAllocator;
 pub use bump_allocator::BumpAllocator;
 
 pub trait Allocator {
-    fn alloc(&mut self, layout: Layout) -> *mut u8;
-    fn dealloc(&mut self, ptr: *mut u8, layout: Layout);
+    fn alloc(&mut self, layout: Layout) -> Result<core::ptr::NonNull<[u8]>, alloc::alloc::AllocError>;
+    fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout);
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_allocator::TestAllocator;
-
-    #[global_allocator]
-    pub static TEST_ALLOCATOR: TestAllocator = TestAllocator::new();
-
     pub const TEST_MEMORY_SIZE: usize = 100000;
     pub static mut TEST_MEMORY: [u8; TEST_MEMORY_SIZE] = [0; TEST_MEMORY_SIZE];
 

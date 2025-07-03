@@ -1,4 +1,6 @@
-use core::{alloc::Layout, usize};
+use core::{alloc::Layout, ptr::NonNull, usize};
+
+use alloc::alloc::AllocError;
 
 use crate::Allocator;
 
@@ -17,16 +19,18 @@ impl<const N: usize> BumpAllocator<N> {
 }
 
 impl<const N: usize> Allocator for BumpAllocator<N> {
-    fn alloc(&mut self, layout: Layout) -> *mut u8 {
+    fn alloc(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         // TODO alignment check
         if self.next.saturating_add(layout.size()) > self.heap.len() {
-            return core::ptr::null_mut();
+            return Err(AllocError);
         }
         let heap = self.heap.as_ptr() as usize;
         let alloc_start = heap + self.next;
         self.next = self.next + layout.size();
-        alloc_start as *mut u8
+        let slice: *mut [u8] =
+            unsafe { core::slice::from_raw_parts_mut(alloc_start as *mut u8, layout.size()) };
+        Ok(NonNull::new(slice).unwrap())
     }
 
-    fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {}
+    fn dealloc(&mut self, _ptr: NonNull<u8>, _layout: Layout) {}
 }

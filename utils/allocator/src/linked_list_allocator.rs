@@ -1,4 +1,6 @@
-use alloc::alloc::Layout;
+use core::ptr::NonNull;
+
+use alloc::alloc::{AllocError, Layout};
 
 use crate::Allocator;
 // TODO use core::ptr::null_mut;
@@ -31,21 +33,26 @@ impl LinkedListAllocator {
 }
 
 impl Allocator for LinkedListAllocator {
-    fn alloc(&mut self, layout: Layout) -> *mut u8 {
+    fn alloc(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         // TODO alignment and bounds check
         let alloc_start = self.next;
         self.next = alloc_start + layout.size();
-        alloc_start as *mut u8
+        let slice: *mut [u8] =
+            unsafe { core::slice::from_raw_parts_mut(alloc_start as *mut u8, layout.size()) };
+        Ok(NonNull::new(slice).unwrap())
     }
 
-    fn dealloc(&mut self, _ptr: *mut u8, _layout: Layout) {}
+    fn dealloc(&mut self, _ptr: NonNull<u8>, _layout: Layout) {}
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
 
-    use crate::tests::{TEST_ALLOCATOR, TEST_MEMORY, TEST_MEMORY_SIZE};
+    use crate::{
+        LockedAllocator,
+        tests::{TEST_MEMORY, TEST_MEMORY_SIZE},
+    };
 
     use super::*;
 
@@ -58,11 +65,11 @@ mod tests {
             TEST_MEMORY[1] = 0xad;
             allocator.init(TEST_MEMORY.as_ptr() as usize, TEST_MEMORY_SIZE);
         }
-        TEST_ALLOCATOR.init(&allocator);
+        let allocator = LockedAllocator::new(allocator);
+
         {
-            let b = Box::new(42);
+            let b = Box::new_in(42, &allocator);
             assert_eq!(42, *b);
         }
-        TEST_ALLOCATOR.uninit();
     }
 }
