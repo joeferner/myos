@@ -20,13 +20,18 @@ pub trait Allocator {
     ) -> Result<core::ptr::NonNull<[u8]>, alloc::alloc::AllocError>;
 
     fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout);
+
+    fn used(&self) -> usize;
+    fn free(&self) -> usize;
 }
 
 #[cfg(test)]
 mod tests {
-    use core::mem::MaybeUninit;
+    use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
 
-    use alloc::boxed::Box;
+    use alloc::{alloc::AllocError, boxed::Box};
+
+    use crate::Allocator;
 
     #[repr(align(128))]
     pub struct Memory<const N: usize> {
@@ -54,5 +59,26 @@ mod tests {
         pub unsafe fn free(putter: *mut Memory<N>) {
             drop(unsafe { Box::from_raw(putter) })
         }
+    }
+
+    pub struct Allocation(pub NonNull<[u8]>, pub Layout);
+
+    impl Allocation {
+        pub fn as_mut_u32(&self) -> *mut u32 {
+            self.0.as_ptr() as *mut u32
+        }
+
+        pub fn free<T: Allocator>(self, allocator: &mut T) {
+            let ptr = self.0.as_ptr() as *mut u8;
+            let ptr = unsafe { NonNull::<u8>::new_unchecked(ptr) };
+            allocator.dealloc(ptr, self.1);
+        }
+    }
+
+    pub fn allocate<T: Allocator>(
+        allocator: &mut T,
+        layout: Layout,
+    ) -> Result<Allocation, AllocError> {
+        allocator.alloc(layout).map(|r| Allocation(r, layout))
     }
 }

@@ -36,4 +36,12 @@ impl Allocator for LinkedListAllocator {
             self.heap.deallocate(ptr, layout);
         }
     }
+    
+    fn used(&self) -> usize {
+        self.heap.used()
+    }
+    
+    fn free(&self) -> usize {
+        self.heap.free()
+    }
 }
