@@ -25,6 +25,10 @@ pub trait Allocator {
     fn free(&self) -> usize;
 }
 
+pub(crate) fn is_power_of_two(n: usize) -> bool {
+    n > 0 && (n & (n - 1)) == 0
+}
+
 #[cfg(test)]
 mod tests {
     use core::{alloc::Layout, mem::MaybeUninit, ptr::NonNull};
