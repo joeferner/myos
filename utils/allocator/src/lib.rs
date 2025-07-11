@@ -5,46 +5,54 @@ extern crate alloc;
 
 mod linked_list_allocator;
 mod locked_allocator;
-mod bump_allocator;
+mod slab_allocator;
 
 use core::{alloc::Layout, ptr::NonNull};
 
 pub use linked_list_allocator::LinkedListAllocator;
 pub use locked_allocator::LockedAllocator;
-pub use bump_allocator::BumpAllocator;
+pub use slab_allocator::SlabAllocator;
 
 pub trait Allocator {
-    fn alloc(&mut self, layout: Layout) -> Result<core::ptr::NonNull<[u8]>, alloc::alloc::AllocError>;
+    fn alloc(
+        &mut self,
+        layout: Layout,
+    ) -> Result<core::ptr::NonNull<[u8]>, alloc::alloc::AllocError>;
+
     fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout);
 }
 
 #[cfg(test)]
 mod tests {
-    pub const TEST_MEMORY_SIZE: usize = 100000;
-    pub static mut TEST_MEMORY: [u8; TEST_MEMORY_SIZE] = [0; TEST_MEMORY_SIZE];
+    use core::mem::MaybeUninit;
 
-    // #[test]
-    // pub fn test_simple() {
-    //     unsafe {
-    //         const HEAP_SIZE: usize = 100;
-    //         let heap: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
-    //         let mut alloc = LinkedListAllocator::new();
-    //         alloc.init(&heap as *const [u8; HEAP_SIZE] as usize, HEAP_SIZE);
+    use alloc::boxed::Box;
 
-    //         let first_alloc = {
-    //             let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
-    //             *m = 0xdeadbeef;
-    //             m
-    //         };
+    #[repr(align(128))]
+    pub struct Memory<const N: usize> {
+        data: MaybeUninit<[u8; N]>,
+    }
 
-    //         let second_alloc = {
-    //             let m = alloc.alloc(Layout::new::<u32>()) as *mut u32;
-    //             *m = 0xcafebabe;
-    //             m
-    //         };
+    impl<const N: usize> Memory<N> {
+        /// Returns (almost certainly aliasing) pointers to the Memory
+        /// as well as the data payload.
+        ///
+        /// MUST be freed with a matching call to `Memory::unleak`
+        pub fn new() -> (*mut Memory<N>, *mut u8) {
+            let heap_space_ptr: *mut Memory<N> = {
+                let owned_box = Box::new(Self {
+                    data: MaybeUninit::uninit(),
+                });
+                let mutref = Box::leak(owned_box);
+                mutref
+            };
+            let data_ptr: *mut u8 =
+                unsafe { core::ptr::addr_of_mut!((*heap_space_ptr).data).cast() };
+            (heap_space_ptr, data_ptr)
+        }
 
-    //         assert_eq_hex!(0xdeadbeef, *first_alloc);
-    //         assert_eq_hex!(0xcafebabe, *second_alloc);
-    //     }
-    // }
+        pub unsafe fn free(putter: *mut Memory<N>) {
+            drop(unsafe { Box::from_raw(putter) })
+        }
+    }
 }

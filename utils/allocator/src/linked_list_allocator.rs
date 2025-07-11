@@ -1,75 +1,39 @@
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
-use alloc::alloc::{AllocError, Layout};
+use alloc::alloc::AllocError;
+use linked_list_allocator::Heap;
 
 use crate::Allocator;
-// TODO use core::ptr::null_mut;
 
 pub struct LinkedListAllocator {
-    heap_start: usize,
-    heap_end: usize,
-    next: usize,
+    heap: Heap,
 }
 
 impl LinkedListAllocator {
-    pub const fn new() -> Self {
-        LinkedListAllocator {
-            heap_start: 0,
-            heap_end: 0,
-            next: 0,
+    pub fn new() -> Self {
+        Self {
+            heap: Heap::empty(),
         }
     }
 
-    /// Initializes the bump allocator with the given heap bounds.
-    ///
-    /// # Safety
-    /// This method is unsafe because the caller must ensure that the given
-    /// memory range is unused. Also, this method must be called only once.
-    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        self.heap_start = heap_start;
-        self.heap_end = heap_start + heap_size;
-        self.next = heap_start;
+    pub unsafe fn init(&mut self, data_ptr: *mut u8, heap_size: usize) {
+        unsafe {
+            self.heap.init(data_ptr, heap_size);
+        }
     }
 }
 
 impl Allocator for LinkedListAllocator {
     fn alloc(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        // TODO alignment and bounds check
-        let alloc_start = self.next;
-        self.next = alloc_start + layout.size();
-        let slice: *mut [u8] =
-            unsafe { core::slice::from_raw_parts_mut(alloc_start as *mut u8, layout.size()) };
-        Ok(NonNull::new(slice).unwrap())
+        self.heap
+            .allocate_first_fit(layout)
+            .map(|ptr| NonNull::slice_from_raw_parts(ptr, layout.size()))
+            .map_err(|_| AllocError)
     }
 
-    fn dealloc(&mut self, _ptr: NonNull<u8>, _layout: Layout) {}
-}
-
-#[cfg(test)]
-mod tests {
-    use alloc::boxed::Box;
-
-    use crate::{
-        LockedAllocator,
-        tests::{TEST_MEMORY, TEST_MEMORY_SIZE},
-    };
-
-    use super::*;
-
-    #[test]
-    #[allow(static_mut_refs)]
-    pub fn test_simple() {
-        let mut allocator = LinkedListAllocator::new();
+    fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout) {
         unsafe {
-            TEST_MEMORY[0] = 0xde;
-            TEST_MEMORY[1] = 0xad;
-            allocator.init(TEST_MEMORY.as_ptr() as usize, TEST_MEMORY_SIZE);
-        }
-        let allocator = LockedAllocator::new(allocator);
-
-        {
-            let b = Box::new_in(42, &allocator);
-            assert_eq!(42, *b);
+            self.heap.deallocate(ptr, layout);
         }
     }
 }

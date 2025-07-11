@@ -3,6 +3,7 @@
         "bitflags",
         "byteorder",
         "repr",
+        "Uninit",
         "zerocopy"
     ]
 }
