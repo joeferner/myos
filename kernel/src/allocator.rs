@@ -1,9 +1,10 @@
 // see https://os.phil-opp.com/heap-allocation/#creating-a-kernel-heap
 
-use allocator::LockedAllocator;
+use allocator::{LinkedListAllocator, LockedAllocator};
 
 #[global_allocator]
-static ALLOCATOR: LockedAllocator = LockedAllocator::new();
+static ALLOCATOR: LockedAllocator<LinkedListAllocator> =
+    LockedAllocator::new(LinkedListAllocator::new());
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -36,7 +37,7 @@ pub fn init_heap(
     }
 
     unsafe {
-        ALLOCATOR.init(HEAP_START, HEAP_SIZE);
+        ALLOCATOR.init(HEAP_START as *mut u8, HEAP_SIZE);
     }
 
     Ok(())

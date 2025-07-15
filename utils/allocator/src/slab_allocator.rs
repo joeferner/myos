@@ -75,6 +75,12 @@ impl<const SLAB_COUNT: usize, TFallback: Allocator> SlabAllocator<SLAB_COUNT, TF
 impl<const SLAB_COUNT: usize, TFallback: Allocator> Allocator
     for SlabAllocator<SLAB_COUNT, TFallback>
 {
+    unsafe fn init(&mut self, data_ptr: *mut u8, heap_size: usize) {
+        unsafe {
+            self.fallback_allocator.init(data_ptr, heap_size);
+        }
+    }
+
     fn alloc(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         match self.slab_index(&layout) {
             Some(slab_idx) => {
@@ -156,15 +162,13 @@ mod tests {
             const HEAP_SIZE: usize = 2048;
             let (heap_space_ptr, data_ptr) = Memory::<HEAP_SIZE>::new();
 
-            let mut fallback_allocator = LinkedListAllocator::new();
-            fallback_allocator.init(data_ptr, HEAP_SIZE);
-
             let mut allocator = SlabAllocator::<SLAB_COUNT, LinkedListAllocator>::new(
                 test_block_size_fn,
                 test_slab_selector_fn,
-                fallback_allocator,
+                LinkedListAllocator::new(),
                 PAGE_SIZE,
             );
+            allocator.init(data_ptr, HEAP_SIZE);
 
             let first_alloc = allocate(&mut allocator, Layout::new::<u32>()).unwrap();
             *first_alloc.as_mut_u32() = 0xdeadbeef;

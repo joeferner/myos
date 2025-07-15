@@ -10,20 +10,18 @@ pub struct LinkedListAllocator {
 }
 
 impl LinkedListAllocator {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             heap: Heap::empty(),
-        }
-    }
-
-    pub unsafe fn init(&mut self, data_ptr: *mut u8, heap_size: usize) {
-        unsafe {
-            self.heap.init(data_ptr, heap_size);
         }
     }
 }
 
 impl Allocator for LinkedListAllocator {
+    unsafe fn init(&mut self, data_ptr: *mut u8, heap_size: usize) {
+        unsafe { self.heap.init(data_ptr, heap_size) }
+    }
+
     fn alloc(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
         self.heap
             .allocate_first_fit(layout)
@@ -36,11 +34,11 @@ impl Allocator for LinkedListAllocator {
             self.heap.deallocate(ptr, layout);
         }
     }
-    
+
     fn used(&self) -> usize {
         self.heap.used()
     }
-    
+
     fn free(&self) -> usize {
         self.heap.free()
     }

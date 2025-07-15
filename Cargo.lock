@@ -531,6 +531,7 @@ name = "myos"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "kernel",
  "ovmf-prebuilt",
 ]
 

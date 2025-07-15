@@ -21,6 +21,10 @@ impl<T: Allocator> LockedAllocator<T> {
             inner: Mutex::new(allocator),
         }
     }
+
+    pub unsafe fn init(&self, data_ptr: *mut u8, heap_size: usize) {
+        unsafe { self.inner.lock().init(data_ptr, heap_size) }
+    }
 }
 
 unsafe impl<T: Allocator> GlobalAlloc for LockedAllocator<T> {

@@ -14,6 +14,8 @@ pub use locked_allocator::LockedAllocator;
 pub use slab_allocator::SlabAllocator;
 
 pub trait Allocator {
+    unsafe fn init(&mut self, data_ptr: *mut u8, heap_size: usize);
+
     fn alloc(
         &mut self,
         layout: Layout,

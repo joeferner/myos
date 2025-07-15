@@ -6,16 +6,16 @@ extern crate alloc;
 use ansi_escape::{Ansi, Color};
 use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping, info::Optional};
 
-use alloc::boxed::Box;
 use console::console_init;
 use serial_port::serial1_init;
 use x86_64::VirtAddr;
 
-use crate::memory::BootInfoFrameAllocator;
+use crate::{memory::BootInfoFrameAllocator, pci::pci_enumerate};
 
 mod allocator;
 mod console;
 mod memory;
+mod pci;
 
 const BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
@@ -46,8 +46,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         println_status!("OK", "Allocator initialized.");
     }
 
-    let x = Box::new(41);
-    println!("{}", x);
+    pci_enumerate();
 
     loop {
         core::hint::spin_loop();
