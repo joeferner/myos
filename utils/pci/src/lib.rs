@@ -1,5 +1,7 @@
 #![no_std]
 
+use core::fmt::Debug;
+
 use bit_field::BitField;
 
 pub trait PciConfigPort {
@@ -36,7 +38,8 @@ impl PciAddress {
 
 pub type VendorId = u16;
 pub type DeviceId = u16;
-pub type HasMultipleFunctions = bool;
+pub type SubClassCode = u8;
+pub type ProgIF = u8;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum HeaderType {
@@ -46,13 +49,65 @@ pub enum HeaderType {
     Unknown(u8),
 }
 
+impl From<u32> for HeaderType {
+    fn from(value: u32) -> Self {
+        match value {
+            0x00 => HeaderType::Endpoint,
+            0x01 => HeaderType::PciPciBridge,
+            0x02 => HeaderType::CardBusBridge,
+            v => HeaderType::Unknown(v as u8),
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ClassCode {
+    OldDevice,
+    MassStorageController,
+    NetworkController,
+    DisplayController,
+    MultimediaDevice,
+    MemoryController,
+    BridgeDevice,
+    SimpleCommunicationsController,
+    BaseSystemPeripheral,
+    InputDevice,
+    DockingStation,
+    Processor,
+    SerialBusController,
+    Reserved(u8),
+    Misc,
+}
+
+impl From<u32> for ClassCode {
+    fn from(value: u32) -> Self {
+        match value {
+            0x00 => ClassCode::OldDevice,
+            0x01 => ClassCode::MassStorageController,
+            0x02 => ClassCode::NetworkController,
+            0x03 => ClassCode::DisplayController,
+            0x04 => ClassCode::MultimediaDevice,
+            0x05 => ClassCode::MemoryController,
+            0x06 => ClassCode::BridgeDevice,
+            0x07 => ClassCode::SimpleCommunicationsController,
+            0x08 => ClassCode::BaseSystemPeripheral,
+            0x09 => ClassCode::InputDevice,
+            0x0a => ClassCode::DockingStation,
+            0x0b => ClassCode::Processor,
+            0x0c => ClassCode::SerialBusController,
+            0xff => ClassCode::Misc,
+            v => ClassCode::Reserved(v as u8),
+        }
+    }
+}
+
 /// ```ignore
 ///       31          24 23         16 15          8 7                0
 ///       +-------------+-------------+-------------+-----------------+
 /// 0x00  |        Device ID          |         Vendor ID             |
 /// 0x04  |          Status           |          Command              |
-/// 0x08  |        Class Code                       | Revision ID     |
-/// 0x0c  |     0x00    | Header Type |  0x00       | Cache Line Size |
+/// 0x08  |  Class Code |  Sub-Class  |   Prog IF   |  Revision ID    |
+/// 0x0c  |     0x00    | Header Type |    0x00     | Cache Line Size |
 ///       +-------------+-------------+-------------+-----------------+
 /// ```
 pub struct PciCommonHeader(PciAddress);
@@ -72,17 +127,26 @@ impl PciCommonHeader {
         Some((vendor_id, device_id))
     }
 
-    pub fn header_type<T: PciConfigPort>(&self, port: &T) -> (HasMultipleFunctions, HeaderType) {
+    pub fn class_code<T: PciConfigPort>(&self, port: &T) -> (ClassCode, SubClassCode) {
+        let data = port.read(&self.0, 0x08);
+        let class_code: ClassCode = data.get_bits(24..32).into();
+        let sub_class_code: SubClassCode = data.get_bits(16..24) as SubClassCode;
+        (class_code, sub_class_code)
+    }
+
+    pub fn prog_if<T: PciConfigPort>(&self, port: &T) -> ProgIF {
+        let data = port.read(&self.0, 0x08);
+        data.get_bits(8..16) as ProgIF
+    }
+
+    pub fn header_type<T: PciConfigPort>(&self, port: &T) -> HeaderType {
         let data = port.read(&self.0, 0x0c);
-        // high level bit 23 contains
-        let header_type = data.get_bits(16..23);
-        let header_type = match header_type {
-            0x00 => HeaderType::Endpoint,
-            0x01 => HeaderType::PciPciBridge,
-            0x02 => HeaderType::CardBusBridge,
-            v => HeaderType::Unknown(v as u8),
-        };
-        let has_multiple_functions = data.get_bit(23);
-        (has_multiple_functions, header_type)
+        // don't include high bit, that indicates if device has multiple functions
+        data.get_bits(16..23).into()
+    }
+
+    pub fn has_multiple_functions<T: PciConfigPort>(&self, port: &T) -> bool {
+        let data = port.read(&self.0, 0x0c);
+        data.get_bit(23)
     }
 }

@@ -1,4 +1,4 @@
-use pci::{PciAddress, PciCommonHeader};
+use pci::{PciAddress, PciCommonHeader, PciConfigPort};
 
 use crate::{pci::x86::PCI_CONFIG_PORT, println};
 
@@ -10,19 +10,37 @@ pub fn pci_enumerate() {
     for bus in 0..=255 {
         for device in 0..32 {
             let header = PciCommonHeader::new(PciAddress::new(bus, device, 0, 0));
-            if let Some((vendor_id, device_id)) = header.id(&*port) {
-                let (has_multiple_functions, header_type) = header.header_type(&*port);
-                println!("{bus}:{device}.0 => {vendor_id:x} {device_id:x} {header_type:?}");
-                if has_multiple_functions {
+            if header.id(&*port).is_some() {
+                print_device(&*port, &header, bus, device, 0);
+                if header.has_multiple_functions(&*port) {
                     for function in 1..8 {
                         let header =
                             PciCommonHeader::new(PciAddress::new(bus, device, function, 0));
-                        if let Some((vendor_id, device_id)) = header.id(&*port) {
-                            println!("  {bus}:{device}.{function} => {vendor_id:x} {device_id:x}");
+                        if header.id(&*port).is_some() {
+                            print_device(&*port, &header, bus, device, function);
                         }
                     }
                 }
             }
         }
+    }
+}
+
+fn print_device<T: PciConfigPort>(
+    port: &T,
+    header: &PciCommonHeader,
+    bus: u8,
+    device: u8,
+    func: u8,
+) {
+    if let Some((vendor_id, device_id)) = header.id(port) {
+        let header_type = header.header_type(port);
+        let (class_code, sub_class_code) = header.class_code(port);
+        let prog_if = header.prog_if(port);
+        println!(
+            "{bus}:{device}.{func} => {vendor_id:04x} {device_id:04x} ht:{header_type:?} cc:{class_code:?} scc:{sub_class_code:02x} pif:{prog_if:02x}"
+        );
+    } else {
+        println!("{bus}:{device}.{func} => unavailable");
     }
 }
