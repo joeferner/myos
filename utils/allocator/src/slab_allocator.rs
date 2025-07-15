@@ -29,12 +29,12 @@ impl<const SLAB_COUNT: usize, TFallback: Allocator> SlabAllocator<SLAB_COUNT, TF
         page_size: usize,
     ) -> Self {
         for i in 0..SLAB_COUNT {
-            let black_size = block_size_fn(i);
-            if !is_power_of_two(black_size) {
-                assert!(false);
+            let block_size = block_size_fn(i);
+            if !is_power_of_two(block_size) {
+                panic!("block size must be power of 2");
             }
-            assert!(core::mem::size_of::<BlockNode>() <= black_size);
-            assert!(core::mem::align_of::<BlockNode>() <= black_size);
+            assert!(core::mem::size_of::<BlockNode>() <= block_size);
+            assert!(core::mem::align_of::<BlockNode>() <= block_size);
         }
         const EMPTY: Option<&'static mut BlockNode> = None;
         Self {

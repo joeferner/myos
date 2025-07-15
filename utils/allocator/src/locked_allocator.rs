@@ -22,6 +22,10 @@ impl<T: Allocator> LockedAllocator<T> {
         }
     }
 
+    /// # Safety
+    /// This function is unsafe because the caller must ensure that the given base address
+    /// really points to a serial port device and that the caller has the necessary rights
+    /// to perform the I/O operation.
     pub unsafe fn init(&self, data_ptr: *mut u8, heap_size: usize) {
         unsafe { self.inner.lock().init(data_ptr, heap_size) }
     }

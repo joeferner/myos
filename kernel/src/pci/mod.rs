@@ -5,8 +5,7 @@ use crate::{pci::x86::PCI_CONFIG_PORT, println};
 mod x86;
 
 pub fn pci_enumerate() {
-    let binding = PCI_CONFIG_PORT;
-    let port = binding.lock();
+    let port = PCI_CONFIG_PORT.lock();
 
     for bus in 0..=255 {
         for device in 0..32 {

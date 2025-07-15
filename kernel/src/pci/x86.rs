@@ -2,7 +2,7 @@ use pci::{PciAddress, PciConfigPort};
 use spin::Mutex;
 use x86_64::instructions::port::{PortGeneric, ReadWriteAccess};
 
-pub const PCI_CONFIG_PORT: Mutex<X86PciConfigPort> = Mutex::new(X86PciConfigPort::new());
+pub static PCI_CONFIG_PORT: Mutex<X86PciConfigPort> = Mutex::new(X86PciConfigPort::new());
 
 const PCI_CONFIG_ADDRESS: u16 = 0xcf8;
 const PCI_CONFIG_DATA: u16 = 0xcfc;
