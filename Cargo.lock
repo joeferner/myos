@@ -427,12 +427,12 @@ version = "0.1.0"
 dependencies = [
  "allocator",
  "ansi-escape",
- "bit_field",
  "bootloader_api",
  "common",
  "conquer-once",
  "framebuffer",
  "pc-screen-font",
+ "pci",
  "serial-port",
  "spin",
  "x86_64",
@@ -560,6 +560,14 @@ name = "pc-screen-font"
 version = "0.1.0"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "pci"
+version = "0.1.0"
+dependencies = [
+ "bit_field",
+ "spin",
 ]
 
 [[package]]

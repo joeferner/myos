@@ -1,0 +1,8 @@
+[package]
+name = "pci"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bit_field = { workspace = true }
+spin = { workspace = true }

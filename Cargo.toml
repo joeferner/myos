@@ -11,7 +11,7 @@ members = [
     "drivers/serial-port",
     "kernel", "utils/allocator",
     "utils/ansi-escape",
-    "utils/pc-screen-font",
+    "utils/pc-screen-font", "utils/pci",
 ]
 
 [workspace.package]
