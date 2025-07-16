@@ -8,10 +8,12 @@ default-run = "myos"
 members = [
     "common",
     "drivers/framebuffer",
+    "drivers/pci",
     "drivers/serial-port",
-    "kernel", "utils/allocator",
+    "kernel",
+    "utils/allocator",
     "utils/ansi-escape",
-    "utils/pc-screen-font", "utils/pci",
+    "utils/pc-screen-font",
 ]
 
 [workspace.package]

@@ -1,6 +1,7 @@
-use pci::{PciAddress, PciConfigPort};
 use spin::Mutex;
 use x86_64::instructions::port::{PortGeneric, ReadWriteAccess};
+
+use crate::types::{PciAddress, PciConfigPort};
 
 pub static PCI_CONFIG_PORT: Mutex<X86PciConfigPort> = Mutex::new(X86PciConfigPort::new());
 

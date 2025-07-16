@@ -1,5 +1,3 @@
-#![no_std]
-
 use core::fmt::Debug;
 
 use bit_field::BitField;
@@ -8,6 +6,7 @@ pub trait PciConfigPort {
     fn read(&self, address: &PciAddress, offset: u32) -> u32;
 }
 
+#[derive(Clone, Debug, Copy)]
 /// The address of a PCIe function.
 ///
 /// PCIe supports 65536 segments, each with 256 buses, each with 32 devices, each with 8 possible functions.:

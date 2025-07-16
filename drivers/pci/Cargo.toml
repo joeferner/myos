@@ -6,3 +6,4 @@ version.workspace = true
 [dependencies]
 bit_field = { workspace = true }
 spin = { workspace = true }
+x86_64 = { workspace = true }
