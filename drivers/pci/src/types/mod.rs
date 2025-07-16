@@ -6,7 +6,7 @@ pub trait PciConfigPort {
     fn read(&self, address: &PciAddress, offset: u32) -> u32;
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Copy)]
 /// The address of a PCIe function.
 ///
 /// PCIe supports 65536 segments, each with 256 buses, each with 32 devices, each with 8 possible functions.:
@@ -32,6 +32,33 @@ impl PciAddress {
 
     pub fn address(&self) -> u32 {
         self.0
+    }
+
+    pub fn segment(&self) -> u16 {
+        self.0.get_bits(16..32) as u16
+    }
+
+    pub fn bus(&self) -> u8 {
+        self.0.get_bits(8..16) as u8
+    }
+
+    pub fn device(&self) -> u8 {
+        self.0.get_bits(3..8) as u8
+    }
+
+    pub fn function(&self) -> u8 {
+        self.0.get_bits(0..3) as u8
+    }
+}
+
+impl Debug for PciAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PciAddress")
+            .field("segment", &format_args!("0x{:04x}", self.segment()))
+            .field("bus", &format_args!("0x{:02x}", self.bus()))
+            .field("device", &format_args!("0x{:02x}", self.device()))
+            .field("function", &format_args!("0x{:02x}", self.function()))
+            .finish()
     }
 }
 

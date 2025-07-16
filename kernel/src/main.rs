@@ -7,11 +7,11 @@ use ansi_escape::{Ansi, Color};
 use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping, info::Optional};
 
 use console::console_init;
-use pci::{PciDevice, PciDriver};
+use pci::PCI_DRIVER;
 use serial_port::serial1_init;
 use x86_64::VirtAddr;
 
-use crate::{memory::BootInfoFrameAllocator, pci::pci_enumerate};
+use crate::memory::BootInfoFrameAllocator;
 
 mod allocator;
 mod console;
@@ -46,20 +46,14 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         println_status!("OK", "Allocator initialized.");
     }
 
-    let pci = PciDriver::new();
-    for pci_device in pci.iterate_devices() {
-        print_pci_device(pci_device);
+    for pci_device in PCI_DRIVER.iterate_devices() {
+        println!("{pci_device:?}");
     }
 
     loop {
         core::hint::spin_loop();
     }
 }
-
-fn print_pci_device(device: &PciDevice) {
-
-}
-
 
 // pub fn pci_enumerate() {
 //     let port = PCI_CONFIG_PORT.lock();
@@ -80,26 +74,6 @@ fn print_pci_device(device: &PciDevice) {
 //                 }
 //             }
 //         }
-//     }
-// }
-
-
-// fn print_device<T: PciConfigPort>(
-//     port: &T,
-//     header: &PciCommonHeader,
-//     bus: u8,
-//     device: u8,
-//     func: u8,
-// ) {
-//     if let Some((vendor_id, device_id)) = header.id(port) {
-//         let header_type = header.header_type(port);
-//         let (class_code, sub_class_code) = header.class_code(port);
-//         let prog_if = header.prog_if(port);
-//         println!(
-//             "{bus}:{device}.{func} => {vendor_id:04x} {device_id:04x} ht:{header_type:?} cc:{class_code:?} scc:{sub_class_code:02x} pif:{prog_if:02x}"
-//         );
-//     } else {
-//         println!("{bus}:{device}.{func} => unavailable");
 //     }
 // }
 
