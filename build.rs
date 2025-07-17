@@ -1,11 +1,10 @@
 use anyhow::Context;
 use bootloader::DiskImageBuilder;
-use fatfs::{FormatVolumeOptions, format_volume};
 use std::{
     env,
     fs::{self},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 fn main() {
@@ -28,11 +27,8 @@ fn main() {
     println!("cargo:rustc-env=UEFI_IMAGE={}", uefi_path.display());
 }
 
-fn create_ram_disk(out_dir: &PathBuf) -> anyhow::Result<PathBuf> {
-    // TODO switch to ext4
-    const MB: u64 = 1024 * 1024;
-    let size = 10 * 1024 * 1024; // TODO calculate fat size needed
-    let size_padded_and_rounded = ((size + 1024 * 64 - 1) / MB + 1) * MB;
+fn create_ram_disk(out_dir: &Path) -> anyhow::Result<PathBuf> {
+    let size = 10 * 1024 * 1024; // TODO calculate size needed
 
     let ram_disk_path = out_dir.join("myos-ram-disk.img");
     let ram_disk_file = fs::OpenOptions::new()
@@ -41,16 +37,16 @@ fn create_ram_disk(out_dir: &PathBuf) -> anyhow::Result<PathBuf> {
         .create(true)
         .truncate(true)
         .open(&ram_disk_path)
-        .context("Failed to create ram disk FAT file")?;
+        .context("Failed to create ram disk file")?;
     ram_disk_file
-        .set_len(size_padded_and_rounded)
+        .set_len(size)
         .context("failed to set ram disk file length")?;
 
-    let format_options = FormatVolumeOptions::new().volume_label(*b"MYOS-BOOT  ");
-    format_volume(&ram_disk_file, format_options).unwrap();
+    let format_options = vsfs::FormatVolumeOptions::new();
+    vsfs::format_volume(&ram_disk_file, format_options).unwrap();
 
-    let fs = fatfs::FileSystem::new(ram_disk_file, fatfs::FsOptions::new()).unwrap();
-    let root_dir = fs.root_dir();
+    let fs = vsfs::FileSystem::new(&ram_disk_file, vsfs::FsOptions::new()).unwrap();
+    let mut root_dir = fs.root_dir();
     let mut file = root_dir.create_file("hello.txt").unwrap();
     file.write_all(b"Hello World!").unwrap();
     Ok(ram_disk_path)

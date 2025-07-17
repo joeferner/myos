@@ -9,7 +9,6 @@ use ansi_escape::{Ansi, Color};
 use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping, info::Optional};
 
 use console::console_init;
-use no_std_io::io::Cursor;
 use pci::PCI_DRIVER;
 use serial_port::serial1_init;
 use x86_64::VirtAddr;
@@ -54,11 +53,14 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             "ram disk 0x{ramdisk_addr:08x} (size: {})",
             boot_info.ramdisk_len
         );
-        let data = unsafe { slice::from_raw_parts(ramdisk_addr, boot_info.ramdisk_len) };
-        let disk = Cursor::new(data);
-        let fat = fatfs::FileSystem::new(disk, fatfs::FsOptions::new());
+        let data = unsafe { slice::from_raw_parts(ramdisk_addr as *const u8, boot_info.ramdisk_len as usize) };
+        let disk = vsfs::io::Cursor::new(data);
+        let vsfs = vsfs::FileSystem::new(&disk, vsfs::FsOptions::new()).unwrap();
 
-        let root_dir = fat.root_dir();
+        let root_dir = vsfs.root_dir();
+        for entry in root_dir.iter() {
+            println!("{entry:?}");
+        }
     } else {
         println!("ram disk not found");
     }

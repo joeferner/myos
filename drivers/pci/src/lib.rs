@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::new_without_default)]
 
 use core::fmt::Debug;
 
@@ -24,7 +25,7 @@ impl<'a, T: PciConfigPort> PciDriver<'a, T> {
     }
 
     pub fn iterate_devices(&self) -> PciDeviceIterator<'a, T> {
-        PciDeviceIterator::new(&self.config_port)
+        PciDeviceIterator::new(self.config_port)
     }
 }
 
@@ -90,7 +91,7 @@ impl<'a, T: PciConfigPort> Iterator for PciDeviceIterator<'a, T> {
                 return Some(PciDevice::new(self.config_port, addr, id.0, id.1, header));
             }
         }
-        return None;
+        None
     }
 }
 

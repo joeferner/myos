@@ -9,16 +9,13 @@ conquer-once = { workspace = true }
 pc-screen-font = { path = "../utils/pc-screen-font" }
 ansi-escape = { path = "../utils/ansi-escape" }
 allocator = { path = "../utils/allocator" }
+vsfs = { path = "../utils/vsfs" }
 pci = { path = "../drivers/pci" }
 framebuffer = { path = "../drivers/framebuffer" }
 serial-port = { path = "../drivers/serial-port" }
 common = { path = "../common" }
 spin = { workspace = true }
 x86_64 = { workspace = true }
-fatfs = { workspace = true }
-# required for fatfs
-core_io = { workspace = true }
-no_std_io = { workspace = true }
 
 [profile.dev]
 panic = "abort"
