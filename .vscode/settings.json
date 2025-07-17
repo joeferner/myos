@@ -2,6 +2,7 @@
     "cSpell.words": [
         "bitflags",
         "byteorder",
+        "inodes",
         "ramdisk",
         "repr",
         "Uninit",

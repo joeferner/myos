@@ -28,24 +28,21 @@ fn main() {
 }
 
 fn create_ram_disk(out_dir: &Path) -> anyhow::Result<PathBuf> {
-    let size = 10 * 1024 * 1024; // TODO calculate size needed
-
     let ram_disk_path = out_dir.join("myos-ram-disk.img");
-    let ram_disk_file = fs::OpenOptions::new()
+    let mut ram_disk_file = fs::OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .truncate(true)
         .open(&ram_disk_path)
         .context("Failed to create ram disk file")?;
-    ram_disk_file
-        .set_len(size)
-        .context("failed to set ram disk file length")?;
 
-    let format_options = vsfs::FormatVolumeOptions::new();
-    vsfs::format_volume(&ram_disk_file, format_options).unwrap();
+    let inode_count = 100;
+    let data_block_count = 100;
+    let format_options = vsfs::FormatVolumeOptions::new(inode_count, data_block_count);
+    vsfs::format_volume(&mut ram_disk_file, format_options).expect("failed to format volume");
 
-    let fs = vsfs::FileSystem::new(&ram_disk_file, vsfs::FsOptions::new()).unwrap();
+    let fs = vsfs::FileSystem::new(&mut ram_disk_file, vsfs::FsOptions::new()).unwrap();
     let mut root_dir = fs.root_dir();
     let mut file = root_dir.create_file("hello.txt").unwrap();
     file.write_all(b"Hello World!").unwrap();

@@ -2,7 +2,7 @@ pub struct File {}
 
 #[cfg(feature = "std")]
 impl std::io::Write for File {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
         todo!()
     }
 

@@ -3,7 +3,7 @@ use crate::{File, Result};
 pub struct Directory {}
 
 impl Directory {
-    pub fn create_file(&mut self, file_name: &str) -> Result<File> {
+    pub fn create_file(&mut self, _file_name: &str) -> Result<File> {
         todo!();
     }
 
