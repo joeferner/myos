@@ -15,6 +15,10 @@ serial-port = { path = "../drivers/serial-port" }
 common = { path = "../common" }
 spin = { workspace = true }
 x86_64 = { workspace = true }
+fatfs = { workspace = true }
+# required for fatfs
+core_io = { workspace = true }
+no_std_io = { workspace = true }
 
 [profile.dev]
 panic = "abort"

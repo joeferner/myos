@@ -3,10 +3,13 @@
 
 extern crate alloc;
 
+use core::slice;
+
 use ansi_escape::{Ansi, Color};
 use bootloader_api::{BootInfo, BootloaderConfig, config::Mapping, info::Optional};
 
 use console::console_init;
+use no_std_io::io::Cursor;
 use pci::PCI_DRIVER;
 use serial_port::serial1_init;
 use x86_64::VirtAddr;
@@ -44,6 +47,20 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         allocator::init_heap(&mut mapper, &mut frame_allocator)
             .expect("heap initialization failed");
         println_status!("OK", "Allocator initialized.");
+    }
+
+    if let Optional::Some(ramdisk_addr) = boot_info.ramdisk_addr {
+        println!(
+            "ram disk 0x{ramdisk_addr:08x} (size: {})",
+            boot_info.ramdisk_len
+        );
+        let data = unsafe { slice::from_raw_parts(ramdisk_addr, boot_info.ramdisk_len) };
+        let disk = Cursor::new(data);
+        let fat = fatfs::FileSystem::new(disk, fatfs::FsOptions::new());
+
+        let root_dir = fat.root_dir();
+    } else {
+        println!("ram disk not found");
     }
 
     for pci_device in PCI_DRIVER.iterate_devices() {
