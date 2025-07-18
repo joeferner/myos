@@ -4,6 +4,9 @@ pub enum Error {
     StdIoError(std::io::Error),
     SizeError,
     SuperBlockError,
+    INodeIndexOutOfRange,
+    BlockOutOfRange,
+    InvalidOffset,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
