@@ -53,8 +53,8 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             "ram disk 0x{ramdisk_addr:08x} (size: {})",
             boot_info.ramdisk_len
         );
-        let data = unsafe { slice::from_raw_parts(ramdisk_addr as *const u8, boot_info.ramdisk_len as usize) };
-        let mut disk = vsfs::io::Cursor::new(data);
+        let mut data = unsafe { slice::from_raw_parts_mut(ramdisk_addr as *mut u8, boot_info.ramdisk_len as usize) };
+        let mut disk = vsfs::io::Cursor::new(&mut data);
         let vsfs = vsfs::FileSystem::new(&mut disk, vsfs::FsOptions::new()).unwrap();
 
         let root_dir = vsfs.root_dir();
@@ -73,28 +73,6 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
         core::hint::spin_loop();
     }
 }
-
-// pub fn pci_enumerate() {
-//     let port = PCI_CONFIG_PORT.lock();
-
-//     for bus in 0..=255 {
-//         for device in 0..32 {
-//             let header = PciCommonHeader::new(PciAddress::new(bus, device, 0, 0));
-//             if header.id(&*port).is_some() {
-//                 print_device(&*port, &header, bus, device, 0);
-//                 if header.has_multiple_functions(&*port) {
-//                     for function in 1..8 {
-//                         let header =
-//                             PciCommonHeader::new(PciAddress::new(bus, device, function, 0));
-//                         if header.id(&*port).is_some() {
-//                             print_device(&*port, &header, bus, device, function);
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
