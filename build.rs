@@ -3,9 +3,9 @@ use bootloader::DiskImageBuilder;
 use std::{
     env,
     fs::{self},
-    io::Write,
     path::{Path, PathBuf},
 };
+use vsfs::{CreateFileOptions, ROOT_UID};
 
 fn main() {
     // set by cargo for the kernel artifact dependency
@@ -44,7 +44,14 @@ fn create_ram_disk(out_dir: &Path) -> anyhow::Result<PathBuf> {
 
     let fs = vsfs::FileSystem::new(&mut ram_disk_file, vsfs::FsOptions::new()).unwrap();
     let mut root_dir = fs.root_dir();
-    let mut file = root_dir.create_file("hello.txt").unwrap();
+    let mut file = root_dir
+        .create_file(CreateFileOptions {
+            file_name: "hello.txt",
+            uid: ROOT_UID,
+            gid: ROOT_UID,
+            mode: 0o755,
+        })
+        .unwrap();
     file.write_all(b"Hello World!").unwrap();
     Ok(ram_disk_path)
 }

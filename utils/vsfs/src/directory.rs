@@ -2,13 +2,13 @@ use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
     BLOCK_SIZE, Error, File, FileNameLen, FileSize, FileSystem, INode, INodeId, MODE_DIRECTORY,
-    Result, Uid, io::ReadWriteSeek,
+    Mode, Result, Uid, io::ReadWriteSeek,
 };
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub(crate) struct PhysicalDirectoryEntry {
-    pub inode: INodeId,
+    pub inode_id: INodeId,
     pub name_len: FileNameLen,
     // name: [u8; < MAX_FILE_NAME_LEN]
 }
@@ -22,7 +22,10 @@ impl PhysicalDirectoryEntry {
         let name_bytes = name.as_bytes();
         let name_len: u16 = name_bytes.len().try_into().map_err(|_| Error::SizeError)?;
 
-        let entry = PhysicalDirectoryEntry { inode, name_len };
+        let entry = PhysicalDirectoryEntry {
+            inode_id: inode,
+            name_len,
+        };
         let entry_bytes = entry.as_bytes();
         let total_len = entry_bytes.len() + name_bytes.len();
         if total_len > buf.len() {
@@ -46,8 +49,71 @@ impl Directory {
         Self { inode_id, inode }
     }
 
-    pub fn create_file(&mut self, _file_name: &str) -> Result<File> {
-        todo!();
+    pub fn create_file<'a, T: ReadWriteSeek>(
+        &mut self,
+        fs: &'a mut FileSystem<'a, T>,
+        options: CreateFileOptions,
+    ) -> Result<File> {
+        let file_name_bytes = options.file_name.as_bytes();
+
+        if file_name_bytes.len() >= MAX_FILE_NAME_LEN {
+            return Err(Error::FileNameTooLong);
+        }
+
+        if self.exists(fs, options.file_name)? {
+            return Err(Error::FileExists);
+        }
+
+        #[cfg(not(feature = "std"))]
+        let time = options.time;
+
+        #[cfg(feature = "std")]
+        let time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| Error::TimeError)?
+            .as_secs();
+
+        let file_inode_id = fs.next_free_inode_id()?;
+
+        let mut file_inode = INode::new(0o755 | MODE_DIRECTORY, time);
+        file_inode.uid = options.uid;
+        file_inode.gid = options.gid;
+        file_inode.size = 0;
+        fs.write_inode(file_inode_id, file_inode)?;
+
+        let mut buf = [0; BLOCK_SIZE];
+        let dir_entry = PhysicalDirectoryEntry {
+            inode_id: file_inode_id,
+            name_len: options.file_name.len() as u16,
+        };
+        dir_entry
+            .write_to_prefix(&mut buf)
+            .map_err(|_| Error::SizeError)?;
+        let file_name_buf = buf
+            .get_mut(
+                BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE
+                    ..BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE + file_name_bytes.len(),
+            )
+            .ok_or(Error::SizeError)?;
+        file_name_buf.copy_from_slice(file_name_bytes);
+
+        fs.append(&self.inode, &buf)?;
+
+        Ok(File::new(file_inode_id, file_inode))
+    }
+
+    pub fn exists<'a, T: ReadWriteSeek>(
+        &mut self,
+        fs: &'a mut FileSystem<'a, T>,
+        file_name: &str,
+    ) -> Result<bool> {
+        for entry in self.iter(fs)? {
+            let entry = entry?;
+            if entry.file_name()? == file_name {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     pub fn iter<'a, T: ReadWriteSeek>(
@@ -72,6 +138,15 @@ impl Directory {
     pub fn inode_id(&self) -> INodeId {
         self.inode_id
     }
+}
+
+pub struct CreateFileOptions<'a> {
+    pub uid: Uid,
+    pub gid: Uid,
+    pub mode: Mode,
+    pub file_name: &'a str,
+    #[cfg(not(feature = "std"))]
+    pub time: crate::Time,
 }
 
 pub struct DirectoryIterator<'a, T: ReadWriteSeek> {
@@ -119,7 +194,7 @@ impl<'a, T: ReadWriteSeek> DirectoryIterator<'a, T> {
             let entry =
                 PhysicalDirectoryEntry::read_from_bytes(buf).map_err(|_| Error::SizeError)?;
 
-            if entry.inode == 0 {
+            if entry.inode_id == 0 {
                 continue;
             }
 
@@ -142,7 +217,7 @@ impl<'a, T: ReadWriteSeek> DirectoryIterator<'a, T> {
         let entry = self.read_next_physical_directory_entry()?;
         match entry {
             Some(entry) => {
-                let entry_inode = self.fs.read_inode(entry.0.inode)?;
+                let entry_inode = self.fs.read_inode(entry.0.inode_id)?;
                 Ok(Some(DirectoryEntry::new(entry.0, entry.1, entry_inode)))
             }
             None => Ok(None),
@@ -189,7 +264,7 @@ impl DirectoryEntry {
     pub fn to_dir(&self) -> Option<Directory> {
         if self.is_dir() {
             Some(Directory::new(
-                self.physical_directory_entry.inode,
+                self.physical_directory_entry.inode_id,
                 self.inode.clone(),
             ))
         } else {

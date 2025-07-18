@@ -1,14 +1,14 @@
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
 #![allow(clippy::new_without_default)]
 
-pub mod directory;
-pub mod error;
-pub mod file;
-pub mod format;
+mod directory;
+mod error;
+mod file;
+mod format;
 pub mod io;
 mod layout;
 
-pub use directory::{Directory, DirectoryIterator};
+pub use directory::{CreateFileOptions, Directory, DirectoryIterator};
 pub use error::{Error, Result};
 pub use file::File;
 pub use format::{FormatVolumeOptions, format_volume};
@@ -38,7 +38,7 @@ pub(crate) type INodeId = u32;
 pub(crate) type INodeIndex = u32;
 pub(crate) type BlockIndex = u32;
 pub(crate) type Uid = u32;
-pub(crate) type Time = u32;
+pub(crate) type Time = u64;
 pub(crate) type Mode = u16;
 pub(crate) type Addr = u64;
 pub(crate) type FileSize = u64;
@@ -46,7 +46,7 @@ pub(crate) type SignedFileSize = i64;
 pub(crate) type FileNameLen = u16;
 pub(crate) const INODE_SIZE: usize = core::mem::size_of::<INode>();
 pub(crate) const INODES_PER_BLOCK: BlockIndex = (BLOCK_SIZE / INODE_SIZE) as BlockIndex;
-pub(crate) const ROOT_UID: Uid = 0;
+pub const ROOT_UID: Uid = 0;
 pub(crate) const IMMEDIATE_BLOCK_COUNT: usize = 12;
 pub(crate) const ROOT_INODE_ID: INodeId = 2;
 
@@ -227,6 +227,14 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
 
         Ok(())
     }
+
+    pub(crate) fn next_free_inode_id(&mut self) -> Result<INodeId> {
+        todo!();
+    }
+
+    pub(crate) fn append(&mut self, inode: &INode, buf: &[u8]) -> Result<()> {
+        todo!();
+    }
 }
 
 #[cfg(test)]
@@ -268,5 +276,29 @@ mod tests {
             count += 1;
         }
         assert_eq!(2, count);
+    }
+
+    #[test]
+    fn test_create_file() {
+        let mut data = [0; 100 * BLOCK_SIZE];
+        let mut cursor = Cursor::new(&mut data);
+        format_volume(&mut cursor, FormatVolumeOptions::new(10, 10)).unwrap();
+
+        let mut fs = FileSystem::new(&mut cursor, FsOptions::new()).unwrap();
+
+        let mut root_dir = fs.root_dir();
+        let mut file = root_dir
+            .create_file(
+                &mut fs,
+                CreateFileOptions {
+                    file_name: "hello.txt",
+                    uid: ROOT_UID,
+                    gid: ROOT_UID,
+                    mode: 0o755,
+                    time: 123,
+                },
+            )
+            .unwrap();
+        file.write_all(b"Hello World!").unwrap();
     }
 }
