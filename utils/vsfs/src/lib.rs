@@ -7,7 +7,6 @@ pub mod file;
 pub mod format;
 pub mod io;
 mod layout;
-mod utils;
 
 pub use directory::{Directory, DirectoryIterator};
 pub use error::{Error, Result};
@@ -143,7 +142,7 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
             .block
             .get(inode_offset..inode_offset + INODE_SIZE)
             .ok_or(Error::SizeError)?;
-        let inode = INode::read_from_bytes(&buf).map_err(|_| Error::SizeError)?;
+        let inode = INode::read_from_bytes(buf).map_err(|_| Error::SizeError)?;
         Ok(inode)
     }
 
@@ -160,14 +159,14 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
     }
 
     fn calc_data_block_addr(&self, inode: &INode, offset: FileSize) -> Result<Addr> {
-        if offset as Addr % BLOCK_SIZE as Addr != 0 {
+        if !(offset as Addr).is_multiple_of(BLOCK_SIZE as Addr) {
             return Err(Error::InvalidOffset);
         }
         let block_idx = (offset as Addr / BLOCK_SIZE as Addr) as BlockIndex;
 
         if block_idx < IMMEDIATE_BLOCK_COUNT as BlockIndex {
             let data_block_idx = inode.blocks[block_idx as usize];
-            return Ok(self.layout.calc_data_addr(data_block_idx)?);
+            return self.layout.calc_data_addr(data_block_idx);
         }
 
         todo!();
@@ -178,13 +177,13 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         let (addr, offset) = self.layout.calc_inode_block_addr(inode_idx)?;
         self.file.seek(SeekFrom::Start(addr as FileSize))?;
         self.file.read(&mut self.block)?;
-        let mut buf = self
+        let buf = self
             .block
             .get_mut(offset..offset + INODE_SIZE)
             .ok_or(Error::SizeError)?;
-        inode.write_to(&mut buf).map_err(|_| Error::SizeError)?;
+        inode.write_to(buf).map_err(|_| Error::SizeError)?;
         self.file.seek(SeekFrom::Start(addr as FileSize))?;
-        self.file.write(&mut self.block)?;
+        self.file.write(&self.block)?;
 
         // update bitmap
         let (addr, offset, bit) = self.layout.calc_inode_bitmap_addr(inode_idx)?;
@@ -192,7 +191,7 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         self.file.read(&mut self.block)?;
         self.block[offset] = 1 << bit;
         self.file.seek(SeekFrom::Start(addr as FileSize))?;
-        self.file.write(&mut self.block)?;
+        self.file.write(&self.block)?;
 
         Ok(())
     }
@@ -224,7 +223,7 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         self.file.read(&mut self.block)?;
         self.block[offset] = 1 << bit;
         self.file.seek(SeekFrom::Start(addr as FileSize))?;
-        self.file.write(&mut self.block)?;
+        self.file.write(&self.block)?;
 
         Ok(())
     }
@@ -254,6 +253,18 @@ mod tests {
         let mut count = 0;
         for entry in root.iter(&mut fs).unwrap() {
             let entry = entry.unwrap();
+            assert!(entry.is_dir());
+            let dir = entry.to_dir().unwrap();
+            assert_eq!(ROOT_UID, dir.uid());
+            assert_eq!(ROOT_UID, dir.gid());
+            assert_eq!(0o755, dir.mode());
+            assert_eq!(ROOT_INODE_ID, dir.inode_id());
+
+            if count == 0 {
+                assert_eq!(".", entry.file_name().unwrap());
+            } else if count == 1 {
+                assert_eq!("..", entry.file_name().unwrap());
+            }
             count += 1;
         }
         assert_eq!(2, count);

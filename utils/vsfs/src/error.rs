@@ -7,6 +7,7 @@ pub enum Error {
     INodeIndexOutOfRange,
     BlockOutOfRange,
     InvalidOffset,
+    Utf8Error,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

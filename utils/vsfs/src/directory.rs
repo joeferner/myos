@@ -1,8 +1,8 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
-    BLOCK_SIZE, Error, File, FileNameLen, FileSize, FileSystem, INode, INodeId, Result, Uid,
-    io::ReadWriteSeek,
+    BLOCK_SIZE, Error, File, FileNameLen, FileSize, FileSystem, INode, INodeId, MODE_DIRECTORY,
+    Result, Uid, io::ReadWriteSeek,
 };
 
 #[repr(C, packed)]
@@ -156,10 +156,7 @@ impl<'a, T: ReadWriteSeek> Iterator for DirectoryIterator<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let result = self.read_next();
         match result {
-            Ok(entry) => match entry {
-                Some(entry) => Some(Ok(entry)),
-                None => None,
-            },
+            Ok(entry) => entry.map(Ok),
             Err(err) => Some(Err(err)),
         }
     }
@@ -183,5 +180,28 @@ impl DirectoryEntry {
             file_name,
             inode,
         }
+    }
+
+    pub fn is_dir(&self) -> bool {
+        (self.inode.mode & MODE_DIRECTORY) == MODE_DIRECTORY
+    }
+
+    pub fn to_dir(&self) -> Option<Directory> {
+        if self.is_dir() {
+            Some(Directory::new(
+                self.physical_directory_entry.inode,
+                self.inode.clone(),
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn file_name(&self) -> Result<&str> {
+        let file_name = self
+            .file_name
+            .get(0..self.physical_directory_entry.name_len as usize)
+            .ok_or(Error::SizeError)?;
+        str::from_utf8(file_name).map_err(|_| Error::Utf8Error)
     }
 }

@@ -1,4 +1,6 @@
-use crate::{utils::div_ceil, Addr, BlockIndex, Error, INodeIndex, Result, BLOCK_SIZE, INODES_PER_BLOCK, INODE_SIZE};
+use crate::{
+    Addr, BLOCK_SIZE, BlockIndex, Error, INODE_SIZE, INODES_PER_BLOCK, INodeIndex, Result,
+};
 
 pub(crate) struct Layout {
     pub inode_count: u32,
@@ -14,9 +16,9 @@ pub(crate) struct Layout {
 
 impl Layout {
     pub(crate) fn new(inode_count: u32, data_block_count: u32) -> Self {
-        let inode_bitmap_block_count = div_ceil(div_ceil(inode_count, 8), BLOCK_SIZE as u32);
-        let data_bitmap_block_count = div_ceil(div_ceil(data_block_count, 8), BLOCK_SIZE as u32);
-        let inode_block_count = div_ceil(inode_count, INODES_PER_BLOCK as u32);
+        let inode_bitmap_block_count = inode_count.div_ceil(8).div_ceil(BLOCK_SIZE as u32);
+        let data_bitmap_block_count = data_block_count.div_ceil(8).div_ceil(BLOCK_SIZE as u32);
+        let inode_block_count = inode_count.div_ceil(INODES_PER_BLOCK);
 
         let inode_bitmap_offset = BLOCK_SIZE as Addr;
         let data_bitmap_offset =
@@ -41,7 +43,10 @@ impl Layout {
     /// returns the address of the block containing the inode bitmap along with the offset
     /// within the block where to find the inode bitmap data along with the bit number of
     /// inode
-    pub(crate) fn calc_inode_bitmap_addr(&self, inode_idx: INodeIndex) -> Result<(Addr, usize, u8)> {
+    pub(crate) fn calc_inode_bitmap_addr(
+        &self,
+        inode_idx: INodeIndex,
+    ) -> Result<(Addr, usize, u8)> {
         if inode_idx >= self.inode_count {
             return Err(Error::INodeIndexOutOfRange);
         }
@@ -75,7 +80,10 @@ impl Layout {
     /// returns the address of the block containing the data bitmap along with the offset
     /// within the block where to find the data bitmap data along with the bit number of
     /// data
-    pub(crate) fn calc_data_bitmap_addr(&self, data_block_idx: BlockIndex) -> Result<(Addr, usize, u8)> {
+    pub(crate) fn calc_data_bitmap_addr(
+        &self,
+        data_block_idx: BlockIndex,
+    ) -> Result<(Addr, usize, u8)> {
         if data_block_idx >= self.data_block_count {
             return Err(Error::INodeIndexOutOfRange);
         }
@@ -232,7 +240,10 @@ mod tests {
             layout.calc_data_bitmap_addr(data_block_count - 1).unwrap()
         );
 
-        let err = layout.calc_data_bitmap_addr(data_block_count).err().unwrap();
+        let err = layout
+            .calc_data_bitmap_addr(data_block_count)
+            .err()
+            .unwrap();
         match err {
             Error::INodeIndexOutOfRange => (),
             _ => panic!("expected size error"),

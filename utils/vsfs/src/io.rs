@@ -24,9 +24,9 @@ pub enum SeekFrom {
 }
 
 #[cfg(feature = "std")]
-impl Into<std::io::SeekFrom> for SeekFrom {
-    fn into(self) -> std::io::SeekFrom {
-        match self {
+impl From<SeekFrom> for std::io::SeekFrom {
+    fn from(value: SeekFrom) -> Self {
+        match value {
             SeekFrom::Start(v) => std::io::SeekFrom::Start(v),
             SeekFrom::End(v) => std::io::SeekFrom::End(v),
             SeekFrom::Current(v) => std::io::SeekFrom::Current(v),
@@ -147,7 +147,7 @@ impl Read for std::fs::File {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         (self as &mut dyn std::io::Read)
             .read(buf)
-            .map_err(|e| crate::Error::StdIoError(e))
+            .map_err(Error::StdIoError)
     }
 }
 
@@ -156,7 +156,7 @@ impl Write for std::fs::File {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         (self as &mut dyn std::io::Write)
             .write(buf)
-            .map_err(|e| crate::Error::StdIoError(e))
+            .map_err(Error::StdIoError)
     }
 }
 
@@ -165,7 +165,7 @@ impl Seek for std::fs::File {
     fn seek(&mut self, pos: SeekFrom) -> Result<FileSize> {
         let new_offset = (self as &mut dyn std::io::Seek)
             .seek(pos.into())
-            .map_err(|e| crate::Error::StdIoError(e))?;
+            .map_err(Error::StdIoError)?;
         Ok(new_offset as FileSize)
     }
 }
