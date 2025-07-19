@@ -230,7 +230,7 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         Ok(())
     }
 
-    /// Reads a block from the given inode. Returns the amount of data read.
+    /// Reads a block from the given inode data. Returns the amount of data read.
     pub(crate) fn read_block(
         &mut self,
         inode_idx: INodeIndex,
@@ -246,6 +246,16 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         self.file.seek(SeekFrom::Start(addr as Addr))?;
         let read_len = self.file.read(block)?;
         Ok((inode.size - offset).min(read_len as u64) as usize)
+    }
+
+    /// Reads data from the given inode data. Returns the amount of data read.
+    pub(crate) fn read(
+        &mut self,
+        inode_idx: INodeIndex,
+        offset: Addr,
+        buf: &mut [u8],
+    ) -> Result<usize> {
+        todo!();
     }
 
     fn calc_data_block_idx(&self, inode: &INode, offset: Addr) -> Result<BlockIndex> {
@@ -281,6 +291,10 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         self.file.write(&self.block)?;
 
         Ok(())
+    }
+
+    pub(crate) fn append(&mut self, inode_idx: INodeIndex, buf: &[u8]) -> Result<()> {
+        todo!();
     }
 }
 

@@ -4,6 +4,7 @@ pub enum Error {
     StdIoError(std::io::Error),
     #[cfg(feature = "std")]
     TimeError,
+    ReadError,
     SizeError,
     SuperBlockError,
     INodeIndexOutOfRange,

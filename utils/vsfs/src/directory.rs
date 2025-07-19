@@ -1,7 +1,7 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
-    BLOCK_SIZE, Error, File, FileNameLen, Addr, FileSystem, INode, INodeIndex, MODE_DIRECTORY,
+    Addr, BLOCK_SIZE, Error, File, FileNameLen, FileSystem, INode, INodeIndex, MODE_DIRECTORY,
     Mode, Result, Uid, io::ReadWriteSeek,
 };
 
@@ -152,76 +152,50 @@ pub struct DirectoryIterator<'a, T: ReadWriteSeek> {
     fs: &'a mut FileSystem<T>,
     inode_idx: INodeIndex,
     offset: Addr,
-    block_offset: usize,
-    block_size: usize,
-    block: [u8; BLOCK_SIZE],
 }
 
 impl<'a, T: ReadWriteSeek> DirectoryIterator<'a, T> {
     pub(crate) fn new(fs: &'a mut FileSystem<T>, inode_idx: INodeIndex) -> Result<Self> {
-        let offset = 0;
-        let mut block = [0; BLOCK_SIZE];
-        let block_size = fs.read_block(inode_idx, offset, &mut block)?;
-
         Ok(Self {
             fs,
             inode_idx,
-            offset,
-            block_offset: 0,
-            block_size,
-            block,
+            offset: 0,
         })
     }
 
-    fn read_next_physical_directory_entry(
-        &mut self,
-    ) -> Result<Option<(PhysicalDirectoryEntry, [u8; MAX_FILE_NAME_LEN])>> {
+    fn read_next(&mut self) -> Result<Option<DirectoryEntry>> {
+        let mut dir_entry_buf = [0; BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE];
+        let mut file_name_buf = [0; MAX_FILE_NAME_LEN];
         loop {
-            if BLOCK_SIZE - self.block_offset < BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE {
-                self.offset += BLOCK_SIZE as Addr;
-                self.block_offset = 0;
-                self.block_size = self.fs.read_block(self.inode_idx, self.offset, &mut self.block)?;
-            }
-            let end_offset = self.block_offset + BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
-            if end_offset > self.block_size {
+            let read = self
+                .fs
+                .read(self.inode_idx, self.offset, &mut dir_entry_buf)?;
+            if read != dir_entry_buf.len() {
                 return Ok(None);
             }
-            let buf = &self
-                .block
-                .get(self.block_offset..end_offset)
-                .ok_or(Error::BlockOutOfRange)?;
-            self.block_offset += BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
+            self.offset += read as Addr;
 
-            let entry =
-                PhysicalDirectoryEntry::read_from_bytes(buf).map_err(|_| Error::SizeError)?;
-
-            if entry.inode_idx == 0 {
+            let dir_entry = PhysicalDirectoryEntry::read_from_bytes(&dir_entry_buf)
+                .map_err(|_| Error::SizeError)?;
+            if dir_entry.inode_idx == 0 {
+                self.offset += dir_entry.name_len as Addr;
                 continue;
             }
 
-            let mut file_name_result = [0; MAX_FILE_NAME_LEN];
-            let file_name = self
-                .block
-                .get(self.block_offset..self.block_offset + entry.name_len as usize)
-                .ok_or(Error::BlockOutOfRange)?;
-            self.block_offset += entry.name_len as usize;
-            file_name_result
-                .get_mut(0..file_name.len())
-                .ok_or(Error::SizeError)?
-                .copy_from_slice(file_name);
-
-            return Ok(Some((entry, file_name_result)));
-        }
-    }
-
-    fn read_next(&mut self) -> Result<Option<DirectoryEntry>> {
-        let entry = self.read_next_physical_directory_entry()?;
-        match entry {
-            Some(entry) => {
-                let entry_inode = self.fs.read_inode(entry.0.inode_idx)?;
-                Ok(Some(DirectoryEntry::new(entry.0, entry.1, entry_inode)))
+            let file_name = file_name_buf
+                .get_mut(0..dir_entry.name_len as usize)
+                .ok_or(Error::SizeError)?;
+            let read = self.fs.read(self.inode_idx, self.offset, file_name)?;
+            if read < dir_entry.name_len as usize {
+                return Err(Error::ReadError);
             }
-            None => Ok(None),
+
+            let entry_inode = self.fs.read_inode(dir_entry.inode_idx)?;
+            return Ok(Some(DirectoryEntry::new(
+                dir_entry,
+                file_name_buf,
+                entry_inode,
+            )));
         }
     }
 }
