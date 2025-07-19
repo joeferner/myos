@@ -5,41 +5,6 @@ use crate::{
     Mode, Result, Uid, io::ReadWriteSeek,
 };
 
-/// Data stored on the file system for each entry in a directory.
-#[repr(C, packed)]
-#[derive(Debug, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
-pub(crate) struct PhysicalDirectoryEntry {
-    pub inode_idx: INodeIndex,
-    pub name_len: FileNameLen,
-    // name: [u8; < MAX_FILE_NAME_LEN]
-}
-
-pub(crate) const BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE: usize =
-    core::mem::size_of::<PhysicalDirectoryEntry>();
-pub(crate) const MAX_FILE_NAME_LEN: usize = BLOCK_SIZE - BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
-
-impl PhysicalDirectoryEntry {
-    pub(crate) fn write(buf: &mut [u8], inode_idx: INodeIndex, name: &str) -> Result<usize> {
-        let name_bytes = name.as_bytes();
-        let name_len: u16 = name_bytes.len().try_into().map_err(|_| Error::SizeError)?;
-
-        let entry = PhysicalDirectoryEntry {
-            inode_idx,
-            name_len,
-        };
-        let entry_bytes = entry.as_bytes();
-        let total_len = entry_bytes.len() + name_bytes.len();
-        if total_len > buf.len() {
-            return Err(Error::SizeError);
-        }
-
-        buf[0..entry_bytes.len()].copy_from_slice(entry_bytes);
-        buf[entry_bytes.len()..entry_bytes.len() + name_bytes.len()].copy_from_slice(name_bytes);
-
-        Ok(total_len)
-    }
-}
-
 pub struct Directory {
     inode_idx: INodeIndex,
     inode: INode,

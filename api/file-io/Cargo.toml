@@ -1,0 +1,10 @@
+[package]
+name = "file-io"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+io = { path = "../io" }
+
+[features]
+std = []

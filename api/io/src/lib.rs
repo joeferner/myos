@@ -1,4 +1,20 @@
-use crate::{Error, Addr, Result, SignedAddr};
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
+#![allow(clippy::new_without_default)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unimplemented,
+    clippy::unreachable,
+    clippy::indexing_slicing,
+    clippy::cast_possible_truncation
+)]
+
+mod cursor;
+mod error;
+
+pub use cursor::Cursor;
+pub use error::{IoError, Result};
 
 /// Enumeration of possible methods to seek within an I/O object.
 ///
@@ -6,21 +22,21 @@ use crate::{Error, Addr, Result, SignedAddr};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeekFrom {
     /// Sets the offset to the provided number of bytes.
-    Start(Addr),
+    Start(u64),
 
     /// Sets the offset to the size of this object plus the specified number of
     /// bytes.
     ///
     /// It is possible to seek beyond the end of an object, but it's an error to
     /// seek before byte 0.
-    End(SignedAddr),
+    End(i64),
 
     /// Sets the offset to the current position plus the specified number of
     /// bytes.
     ///
     /// It is possible to seek beyond the end of an object, but it's an error to
     /// seek before byte 0.
-    Current(SignedAddr),
+    Current(i64),
 }
 
 #[cfg(feature = "std")]
@@ -139,7 +155,7 @@ pub trait Seek {
     /// Seeking can fail, for example because it might involve flushing a buffer.
     ///
     /// Seeking to a negative offset is considered an error.
-    fn seek(&mut self, pos: SeekFrom) -> Result<Addr>;
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64>;
 }
 
 #[cfg(feature = "std")]
@@ -162,147 +178,14 @@ impl Write for std::fs::File {
 
 #[cfg(feature = "std")]
 impl Seek for std::fs::File {
-    fn seek(&mut self, pos: SeekFrom) -> Result<Addr> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<FilePos> {
         let new_offset = (self as &mut dyn std::io::Seek)
             .seek(pos.into())
             .map_err(Error::StdIoError)?;
-        Ok(new_offset as Addr)
+        Ok(new_offset as FilePos)
     }
 }
 
 /// A sum of `Read`, `Write` and `Seek` traits.
 pub trait ReadWriteSeek: Read + Write + Seek {}
 impl<T: Read + Write + Seek> ReadWriteSeek for T {}
-
-pub struct Cursor<'a> {
-    data: &'a mut [u8],
-    pos: Addr,
-}
-
-impl<'a> Cursor<'a> {
-    pub fn new(data: &'a mut [u8]) -> Self {
-        Self { data, pos: 0 }
-    }
-}
-
-impl<'a> Read for Cursor<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let start = self.pos as usize;
-        let end = (self.pos + buf.len() as Addr).min(self.data.len() as Addr) as usize;
-        let data_slice = &self.data[start..end];
-        let buf_slice = &mut buf[0..data_slice.len()];
-        buf_slice.copy_from_slice(data_slice);
-        self.pos += data_slice.len() as Addr;
-        Ok(data_slice.len())
-    }
-}
-
-impl<'a> Write for Cursor<'a> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let start = self.pos as usize;
-        let end = (self.pos + buf.len() as Addr) as usize;
-        if end > self.data.len() {
-            return Err(Error::SizeError);
-        }
-        let data_slice = &mut self.data[start..end];
-        data_slice.copy_from_slice(buf);
-        self.pos = end as Addr;
-        Ok(buf.len())
-    }
-}
-
-impl<'a> Seek for Cursor<'a> {
-    fn seek(&mut self, pos: SeekFrom) -> Result<Addr> {
-        match pos {
-            SeekFrom::Start(v) => {
-                self.pos = v;
-                Ok(v)
-            }
-            SeekFrom::End(v) => {
-                let len = self.data.len() as Addr;
-                if let Some(new_pos) = len.checked_add_signed(v) {
-                    self.pos = new_pos;
-                    Ok(new_pos)
-                } else {
-                    Err(Error::SizeError)
-                }
-            }
-            SeekFrom::Current(v) => {
-                if let Some(new_pos) = self.pos.checked_add_signed(v) {
-                    self.pos = new_pos;
-                    Ok(new_pos)
-                } else {
-                    Err(Error::SizeError)
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_cursor_seeks() {
-        let mut data = [0; 100];
-        let mut cursor = Cursor::new(&mut data);
-        assert_eq!(0, cursor.seek(SeekFrom::Start(0)).unwrap());
-        assert_eq!(100, cursor.seek(SeekFrom::End(0)).unwrap());
-        assert_eq!(100, cursor.seek(SeekFrom::Current(0)).unwrap());
-        assert_eq!(0, cursor.seek(SeekFrom::End(-100)).unwrap());
-        assert!(cursor.seek(SeekFrom::End(-101)).is_err());
-
-        assert_eq!(0, cursor.seek(SeekFrom::Start(0)).unwrap());
-        assert!(cursor.seek(SeekFrom::Current(-1)).is_err());
-    }
-
-    #[test]
-    fn test_write() {
-        let mut data = [0; 100];
-        let mut cursor = Cursor::new(&mut data);
-
-        let buf = [1; 10];
-        cursor.write(&buf).unwrap();
-        assert_eq!(10, cursor.seek(SeekFrom::Current(0)).unwrap());
-
-        let buf = [2; 10];
-        cursor.write(&buf).unwrap();
-        assert_eq!(20, cursor.seek(SeekFrom::Current(0)).unwrap());
-
-        let mut buf = [9; 101];
-        cursor.seek(SeekFrom::Start(0)).unwrap();
-        assert_eq!(100, cursor.read(&mut buf).unwrap());
-        for i in 0..buf.len() {
-            if i < 10 {
-                assert_eq!(1, buf[i]);
-            } else if i < 20 {
-                assert_eq!(2, buf[i]);
-            } else if i < 100 {
-                assert_eq!(0, buf[i]);
-            } else {
-                assert_eq!(9, buf[i]);
-            }
-        }
-    }
-
-    #[test]
-    fn test_write_past_end() {
-        let mut data = [0; 100];
-        let mut cursor = Cursor::new(&mut data);
-
-        let buf = [1; 10];
-        cursor.seek(SeekFrom::Start(99)).unwrap();
-        assert!(cursor.write(&buf).is_err());
-    }
-
-    #[test]
-    fn test_read_past_end() {
-        let mut data = [0; 100];
-        let mut cursor = Cursor::new(&mut data);
-        cursor.seek(SeekFrom::End(0)).unwrap();
-
-        let mut buf = [0; 10];
-        assert_eq!(0, cursor.read(&mut buf).unwrap());
-    }
-}

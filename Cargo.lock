@@ -279,6 +279,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-io"
+version = "0.1.0"
+dependencies = [
+ "io",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -404,6 +411,10 @@ name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
+
+[[package]]
+name = "io"
+version = "0.1.0"
 
 [[package]]
 name = "itoa"
@@ -534,10 +545,13 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bootloader",
- "kernel",
  "ovmf-prebuilt",
  "vsfs",
 ]
+
+[[package]]
+name = "myos-api"
+version = "0.1.0"
 
 [[package]]
 name = "once_cell"
@@ -957,6 +971,9 @@ checksum = "442887c63f2c839b346c192d047a7c87e73d0689c9157b00b53dcc27dd5ea793"
 name = "vsfs"
 version = "0.1.0"
 dependencies = [
+ "file-io",
+ "io",
+ "myos-api",
  "zerocopy",
 ]
 

@@ -6,6 +6,7 @@ default-run = "myos"
 
 [workspace]
 members = [
+    "api/file-io", "api/io", "api/myos-api",
     "common",
     "drivers/framebuffer",
     "drivers/pci",
@@ -38,7 +39,7 @@ bit_field = "0.10.2"
 ovmf-prebuilt = "0.2.3"
 
 [build-dependencies]
-kernel = { path = "./kernel", artifact = "bin", target = "x86_64-unknown-none" }
+# kernel = { path = "./kernel", artifact = "bin", target = "x86_64-unknown-none" }
 bootloader = "0.11.3"
 anyhow = "1.0.98"
 vsfs = { path = "./utils/vsfs", features = ["std"] }

@@ -1,0 +1,9 @@
+[package]
+name = "myos-api"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+
+[features]
+std = []

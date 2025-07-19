@@ -5,6 +5,9 @@ version.workspace = true
 
 [dependencies]
 zerocopy = { workspace = true }
+myos-api = { path = "../../api/myos-api" }
+io = { path = "../../api/io" }
+file-io = { path = "../../api/file-io" }
 
 [features]
 std = []

@@ -3,6 +3,7 @@
         "bitflags",
         "byteorder",
         "inodes",
+        "myos",
         "ramdisk",
         "repr",
         "Uninit",
