@@ -40,12 +40,14 @@ pub(crate) type Uid = u32;
 pub(crate) type Time = u64;
 pub(crate) type Mode = u16;
 pub(crate) type Addr = u64;
-pub(crate) type FileSize = u64;
-pub(crate) type SignedFileSize = i64;
+pub(crate) type SignedAddr = i64;
 pub(crate) type FileNameLen = u16;
 pub(crate) const INODE_SIZE: usize = core::mem::size_of::<INode>();
 pub(crate) const INODES_PER_BLOCK: BlockIndex = (BLOCK_SIZE / INODE_SIZE) as BlockIndex;
 pub const ROOT_UID: Uid = 0;
+/// Number of block offsets stored in the inode itself, if the number of
+/// blocks exceeds this amount additional blocks will be stored in
+/// the indirect_block data
 pub(crate) const IMMEDIATE_BLOCK_COUNT: usize = 12;
 pub(crate) const ROOT_INODE_IDX: INodeIndex = 2;
 
@@ -56,7 +58,7 @@ pub(crate) struct INode {
     gid: Uid,
     mode: Mode,
     /// size of the file
-    size: FileSize,
+    size: Addr,
     /// what time was this file last accessed?
     time: Time,
     /// what time was this file created?
@@ -135,9 +137,48 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         Directory::new(ROOT_INODE_IDX, self.root_inode.clone())
     }
 
+    pub(crate) fn create_inode(&mut self, inode: INode) -> Result<INodeIndex> {
+        let mut inode_idx: Option<INodeIndex> = None;
+        self.file
+            .seek(SeekFrom::Start(self.layout.inode_bitmap_offset))?;
+        let mut byte_offset = 0;
+        let mut bit_offset = 0;
+        for i in 0..self.layout.inode_count {
+            if i.is_multiple_of(INODES_PER_BLOCK) {
+                self.file.read(&mut self.block)?;
+                byte_offset = 0;
+                bit_offset = 0;
+            }
+            let byte = self.block[byte_offset];
+            let bit = (byte >> bit_offset) & 1;
+            if bit == 0 {
+                inode_idx = Some(i);
+            }
+            bit_offset += 1;
+            if bit_offset == 8 {
+                bit_offset = 0;
+                byte_offset += 1;
+            }
+        }
+
+        if let Some(inode_idx) = inode_idx {
+            self.write_inode(inode_idx, inode)?;
+            Ok(inode_idx)
+        } else {
+            Err(Error::OutOfINodes)
+        }
+    }
+
+    /// Reads an inode.
+    ///
+    /// This function will validate that the given index has data.
     fn read_inode(&mut self, inode_idx: INodeIndex) -> Result<INode> {
+        if !self.is_inode_idx_readable(inode_idx)? {
+            return Err(Error::INodeIndexEmpty);
+        }
+
         let (block_addr, inode_offset) = self.layout.calc_inode_block_addr(inode_idx)?;
-        self.file.seek(SeekFrom::Start(block_addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(block_addr as Addr))?;
         if self.file.read(&mut self.block)? != BLOCK_SIZE {
             return Err(Error::SizeError);
         }
@@ -149,51 +190,37 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         Ok(inode)
     }
 
-    pub(crate) fn read(
-        &mut self,
-        inode: &INode,
-        offset: FileSize,
-        block: &mut [u8; BLOCK_SIZE],
-    ) -> Result<()> {
-        let addr = self.calc_data_block_addr(inode, offset)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
-        self.file.read(block)?;
-        Ok(())
+    /// Checks the inode bitmap to see if the given inode has data
+    fn is_inode_idx_readable(&mut self, inode_idx: INodeIndex) -> Result<bool> {
+        let (addr, offset, bit) = self.layout.calc_inode_bitmap_addr(inode_idx)?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
+        self.file.read(&mut self.block)?;
+        Ok((self.block[offset] >> bit) == 1)
     }
 
-    fn calc_data_block_addr(&self, inode: &INode, offset: FileSize) -> Result<Addr> {
-        if !(offset as Addr).is_multiple_of(BLOCK_SIZE as Addr) {
-            return Err(Error::InvalidOffset);
-        }
-        let block_idx = (offset as Addr / BLOCK_SIZE as Addr) as BlockIndex;
-
-        if block_idx < IMMEDIATE_BLOCK_COUNT as BlockIndex {
-            let data_block_idx = inode.blocks[block_idx as usize];
-            return self.layout.calc_data_addr(data_block_idx);
-        }
-
-        todo!();
-    }
-
+    /// Writes an inode at the given index.
+    ///
+    /// This function overwrites any existing inode data and updates the inode
+    /// bitmap to indicate that the inode is now filled
     pub(crate) fn write_inode(&mut self, inode_idx: INodeIndex, inode: INode) -> Result<()> {
         // write inode
         let (addr, offset) = self.layout.calc_inode_block_addr(inode_idx)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.read(&mut self.block)?;
         let buf = self
             .block
             .get_mut(offset..offset + INODE_SIZE)
             .ok_or(Error::SizeError)?;
         inode.write_to(buf).map_err(|_| Error::SizeError)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.write(&self.block)?;
 
         // update bitmap
         let (addr, offset, bit) = self.layout.calc_inode_bitmap_addr(inode_idx)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.read(&mut self.block)?;
         self.block[offset] = 1 << bit;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.write(&self.block)?;
 
         if inode_idx == ROOT_INODE_IDX {
@@ -203,15 +230,36 @@ impl<T: ReadWriteSeek> FileSystem<T> {
         Ok(())
     }
 
-    pub(crate) fn read_data_block(
+    /// Reads a block from the given inode. Returns the amount of data read.
+    pub(crate) fn read_block(
         &mut self,
-        data_block_idx: BlockIndex,
+        inode_idx: INodeIndex,
+        offset: Addr,
         block: &mut [u8; BLOCK_SIZE],
-    ) -> Result<()> {
+    ) -> Result<usize> {
+        let inode = self.read_inode(inode_idx)?;
+        if offset > inode.size {
+            return Ok(0);
+        }
+        let data_block_idx = self.calc_data_block_idx(&inode, offset)?;
         let addr = self.layout.calc_data_addr(data_block_idx)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
-        self.file.read(block)?;
-        Ok(())
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
+        let read_len = self.file.read(block)?;
+        Ok((inode.size - offset).min(read_len as u64) as usize)
+    }
+
+    fn calc_data_block_idx(&self, inode: &INode, offset: Addr) -> Result<BlockIndex> {
+        if !(offset as Addr).is_multiple_of(BLOCK_SIZE as Addr) {
+            return Err(Error::InvalidOffset);
+        }
+        let block_idx = (offset as Addr / BLOCK_SIZE as Addr) as BlockIndex;
+
+        if block_idx < IMMEDIATE_BLOCK_COUNT as BlockIndex {
+            let data_block_idx = inode.blocks[block_idx as usize];
+            return Ok(data_block_idx);
+        }
+
+        todo!();
     }
 
     pub(crate) fn write_data_block(
@@ -221,26 +269,18 @@ impl<T: ReadWriteSeek> FileSystem<T> {
     ) -> Result<()> {
         // write data
         let addr = self.layout.calc_data_addr(data_block_idx)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.write(&block)?;
 
         // update bitmap
         let (addr, offset, bit) = self.layout.calc_data_bitmap_addr(data_block_idx)?;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.read(&mut self.block)?;
         self.block[offset] = 1 << bit;
-        self.file.seek(SeekFrom::Start(addr as FileSize))?;
+        self.file.seek(SeekFrom::Start(addr as Addr))?;
         self.file.write(&self.block)?;
 
         Ok(())
-    }
-
-    pub(crate) fn next_free_inode_id(&mut self) -> Result<INodeIndex> {
-        todo!();
-    }
-
-    pub(crate) fn append(&mut self, inode: &INode, buf: &[u8]) -> Result<()> {
-        todo!();
     }
 }
 
@@ -304,4 +344,6 @@ mod tests {
             .unwrap();
         file.write_all(b"Hello World!").unwrap();
     }
+
+    // TODO test inode exhaustion
 }

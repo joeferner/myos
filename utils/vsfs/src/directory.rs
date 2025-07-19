@@ -1,10 +1,11 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
 use crate::{
-    BLOCK_SIZE, Error, File, FileNameLen, FileSize, FileSystem, INode, INodeIndex, MODE_DIRECTORY,
+    BLOCK_SIZE, Error, File, FileNameLen, Addr, FileSystem, INode, INodeIndex, MODE_DIRECTORY,
     Mode, Result, Uid, io::ReadWriteSeek,
 };
 
+/// Data stored on the file system for each entry in a directory.
 #[repr(C, packed)]
 #[derive(Debug, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub(crate) struct PhysicalDirectoryEntry {
@@ -73,13 +74,11 @@ impl Directory {
             .map_err(|_| Error::TimeError)?
             .as_secs();
 
-        let file_inode_id = fs.next_free_inode_id()?;
-
         let mut file_inode = INode::new(0o755 | MODE_DIRECTORY, time);
         file_inode.uid = options.uid;
         file_inode.gid = options.gid;
         file_inode.size = 0;
-        fs.write_inode(file_inode_id, file_inode.clone())?;
+        let file_inode_id = fs.create_inode(file_inode.clone())?;
 
         let mut buf = [0; BLOCK_SIZE];
         let dir_entry = PhysicalDirectoryEntry {
@@ -97,7 +96,7 @@ impl Directory {
             .ok_or(Error::SizeError)?;
         file_name_buf.copy_from_slice(file_name_bytes);
 
-        fs.append(&self.inode, &buf)?;
+        fs.append(self.inode_idx, &buf)?;
 
         Ok(File::new(file_inode_id, file_inode))
     }
@@ -120,7 +119,7 @@ impl Directory {
         &self,
         fs: &'a mut FileSystem<T>,
     ) -> Result<DirectoryIterator<'a, T>> {
-        DirectoryIterator::new(fs, self.inode.clone())
+        DirectoryIterator::new(fs, self.inode_idx)
     }
 
     pub fn uid(&self) -> Uid {
@@ -151,23 +150,25 @@ pub struct CreateFileOptions<'a> {
 
 pub struct DirectoryIterator<'a, T: ReadWriteSeek> {
     fs: &'a mut FileSystem<T>,
-    inode: INode,
-    offset: FileSize,
+    inode_idx: INodeIndex,
+    offset: Addr,
     block_offset: usize,
+    block_size: usize,
     block: [u8; BLOCK_SIZE],
 }
 
 impl<'a, T: ReadWriteSeek> DirectoryIterator<'a, T> {
-    pub(crate) fn new(fs: &'a mut FileSystem<T>, inode: INode) -> Result<Self> {
+    pub(crate) fn new(fs: &'a mut FileSystem<T>, inode_idx: INodeIndex) -> Result<Self> {
         let offset = 0;
         let mut block = [0; BLOCK_SIZE];
-        fs.read(&inode, offset, &mut block)?;
+        let block_size = fs.read_block(inode_idx, offset, &mut block)?;
 
         Ok(Self {
             fs,
-            inode,
+            inode_idx,
             offset,
             block_offset: 0,
+            block_size,
             block,
         })
     }
@@ -176,18 +177,18 @@ impl<'a, T: ReadWriteSeek> DirectoryIterator<'a, T> {
         &mut self,
     ) -> Result<Option<(PhysicalDirectoryEntry, [u8; MAX_FILE_NAME_LEN])>> {
         loop {
-            if self.offset + self.block_offset as FileSize >= self.inode.size {
-                return Ok(None);
-            }
-
             if BLOCK_SIZE - self.block_offset < BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE {
-                self.offset += BLOCK_SIZE as FileSize;
+                self.offset += BLOCK_SIZE as Addr;
                 self.block_offset = 0;
-                self.fs.read(&self.inode, self.offset, &mut self.block)?;
+                self.block_size = self.fs.read_block(self.inode_idx, self.offset, &mut self.block)?;
+            }
+            let end_offset = self.block_offset + BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
+            if end_offset > self.block_size {
+                return Ok(None);
             }
             let buf = &self
                 .block
-                .get(self.block_offset..self.block_offset + BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE)
+                .get(self.block_offset..end_offset)
                 .ok_or(Error::BlockOutOfRange)?;
             self.block_offset += BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
 

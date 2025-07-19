@@ -12,6 +12,10 @@ pub enum Error {
     Utf8Error,
     FileExists,
     FileNameTooLong,
+    OutOfINodes,
+    /// indicates that the given inode index is empty and has not been written
+    /// to or has been deleted
+    INodeIndexEmpty,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

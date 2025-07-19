@@ -1,7 +1,7 @@
 use zerocopy::IntoBytes;
 
 use crate::{
-    BLOCK_SIZE, Error, FileSize, FileSystem, FsOptions, INode, Layout, MAGIC, MODE_DIRECTORY,
+    BLOCK_SIZE, Error, Addr, FileSystem, FsOptions, INode, Layout, MAGIC, MODE_DIRECTORY,
     ROOT_INODE_IDX, ROOT_UID, Result, SuperBlock, Time,
     directory::PhysicalDirectoryEntry,
     io::{ReadWriteSeek, SeekFrom},
@@ -81,7 +81,7 @@ pub fn format_volume<T: ReadWriteSeek>(
     let mut root_inode = INode::new(0o755 | MODE_DIRECTORY, options.time);
     root_inode.uid = ROOT_UID;
     root_inode.gid = ROOT_UID;
-    root_inode.size = data_size as FileSize;
+    root_inode.size = data_size as Addr;
     root_inode.blocks[0] = 0;
     fs.write_inode(ROOT_INODE_IDX, root_inode)?;
 

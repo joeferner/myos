@@ -1,4 +1,4 @@
-use crate::{Error, FileSize, Result, SignedFileSize};
+use crate::{Error, Addr, Result, SignedAddr};
 
 /// Enumeration of possible methods to seek within an I/O object.
 ///
@@ -6,21 +6,21 @@ use crate::{Error, FileSize, Result, SignedFileSize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeekFrom {
     /// Sets the offset to the provided number of bytes.
-    Start(FileSize),
+    Start(Addr),
 
     /// Sets the offset to the size of this object plus the specified number of
     /// bytes.
     ///
     /// It is possible to seek beyond the end of an object, but it's an error to
     /// seek before byte 0.
-    End(SignedFileSize),
+    End(SignedAddr),
 
     /// Sets the offset to the current position plus the specified number of
     /// bytes.
     ///
     /// It is possible to seek beyond the end of an object, but it's an error to
     /// seek before byte 0.
-    Current(SignedFileSize),
+    Current(SignedAddr),
 }
 
 #[cfg(feature = "std")]
@@ -139,7 +139,7 @@ pub trait Seek {
     /// Seeking can fail, for example because it might involve flushing a buffer.
     ///
     /// Seeking to a negative offset is considered an error.
-    fn seek(&mut self, pos: SeekFrom) -> Result<FileSize>;
+    fn seek(&mut self, pos: SeekFrom) -> Result<Addr>;
 }
 
 #[cfg(feature = "std")]
@@ -162,11 +162,11 @@ impl Write for std::fs::File {
 
 #[cfg(feature = "std")]
 impl Seek for std::fs::File {
-    fn seek(&mut self, pos: SeekFrom) -> Result<FileSize> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<Addr> {
         let new_offset = (self as &mut dyn std::io::Seek)
             .seek(pos.into())
             .map_err(Error::StdIoError)?;
-        Ok(new_offset as FileSize)
+        Ok(new_offset as Addr)
     }
 }
 
@@ -176,7 +176,7 @@ impl<T: Read + Write + Seek> ReadWriteSeek for T {}
 
 pub struct Cursor<'a> {
     data: &'a mut [u8],
-    pos: FileSize,
+    pos: Addr,
 }
 
 impl<'a> Cursor<'a> {
@@ -188,11 +188,11 @@ impl<'a> Cursor<'a> {
 impl<'a> Read for Cursor<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         let start = self.pos as usize;
-        let end = (self.pos + buf.len() as FileSize).min(self.data.len() as FileSize) as usize;
+        let end = (self.pos + buf.len() as Addr).min(self.data.len() as Addr) as usize;
         let data_slice = &self.data[start..end];
         let buf_slice = &mut buf[0..data_slice.len()];
         buf_slice.copy_from_slice(data_slice);
-        self.pos += data_slice.len() as FileSize;
+        self.pos += data_slice.len() as Addr;
         Ok(data_slice.len())
     }
 }
@@ -200,26 +200,26 @@ impl<'a> Read for Cursor<'a> {
 impl<'a> Write for Cursor<'a> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let start = self.pos as usize;
-        let end = (self.pos + buf.len() as FileSize) as usize;
+        let end = (self.pos + buf.len() as Addr) as usize;
         if end > self.data.len() {
             return Err(Error::SizeError);
         }
         let data_slice = &mut self.data[start..end];
         data_slice.copy_from_slice(buf);
-        self.pos = end as FileSize;
+        self.pos = end as Addr;
         Ok(buf.len())
     }
 }
 
 impl<'a> Seek for Cursor<'a> {
-    fn seek(&mut self, pos: SeekFrom) -> Result<FileSize> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<Addr> {
         match pos {
             SeekFrom::Start(v) => {
                 self.pos = v;
                 Ok(v)
             }
             SeekFrom::End(v) => {
-                let len = self.data.len() as FileSize;
+                let len = self.data.len() as Addr;
                 if let Some(new_pos) = len.checked_add_signed(v) {
                     self.pos = new_pos;
                     Ok(new_pos)
