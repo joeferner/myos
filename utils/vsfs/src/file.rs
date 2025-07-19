@@ -1,13 +1,13 @@
-use crate::{INode, INodeId, Result};
+use crate::{INode, INodeIndex, Result};
 
 pub struct File {
-    inode_id: INodeId,
+    inode_idx: INodeIndex,
     inode: INode,
 }
 
 impl File {
-    pub(crate) fn new(inode_id: INodeId, inode: INode) -> Self {
-        Self { inode_id, inode }
+    pub(crate) fn new(inode_idx: INodeIndex, inode: INode) -> Self {
+        Self { inode_idx, inode }
     }
     
     pub fn write(&mut self, buf: &[u8]) -> Result<usize> {

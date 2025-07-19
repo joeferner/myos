@@ -34,7 +34,6 @@ impl FsOptions {
 pub const MAGIC: [u8; 4] = *b"vsfs";
 pub const BLOCK_SIZE: usize = 4 * 1024;
 pub const MODE_DIRECTORY: u16 = 0o40000;
-pub(crate) type INodeId = u32;
 pub(crate) type INodeIndex = u32;
 pub(crate) type BlockIndex = u32;
 pub(crate) type Uid = u32;
@@ -48,7 +47,7 @@ pub(crate) const INODE_SIZE: usize = core::mem::size_of::<INode>();
 pub(crate) const INODES_PER_BLOCK: BlockIndex = (BLOCK_SIZE / INODE_SIZE) as BlockIndex;
 pub const ROOT_UID: Uid = 0;
 pub(crate) const IMMEDIATE_BLOCK_COUNT: usize = 12;
-pub(crate) const ROOT_INODE_ID: INodeId = 2;
+pub(crate) const ROOT_INODE_IDX: INodeIndex = 2;
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
@@ -94,15 +93,15 @@ pub struct SuperBlock {
     pub data_block_count: u32,
 }
 
-pub struct FileSystem<'a, T: ReadWriteSeek> {
-    file: &'a mut T,
+pub struct FileSystem<T: ReadWriteSeek> {
+    file: T,
     layout: Layout,
     root_inode: INode,
     block: [u8; BLOCK_SIZE],
 }
 
-impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
-    pub fn new(file: &'a mut T, options: FsOptions) -> Result<Self> {
+impl<T: ReadWriteSeek> FileSystem<T> {
+    pub fn new(mut file: T, options: FsOptions) -> Result<Self> {
         let mut block = [0; BLOCK_SIZE];
         file.seek(io::SeekFrom::Start(0))?;
         file.read(&mut block)?;
@@ -122,14 +121,18 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         };
 
         if options.read_root_inode {
-            fs.root_inode = fs.read_inode(ROOT_INODE_ID)?
+            fs.root_inode = fs.read_inode(ROOT_INODE_IDX)?
         };
 
         Ok(fs)
     }
 
+    pub fn size(&self) -> Addr {
+        self.layout.size()
+    }
+
     pub fn root_dir(&self) -> Directory {
-        Directory::new(ROOT_INODE_ID, self.root_inode.clone())
+        Directory::new(ROOT_INODE_IDX, self.root_inode.clone())
     }
 
     fn read_inode(&mut self, inode_idx: INodeIndex) -> Result<INode> {
@@ -193,6 +196,10 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         self.file.seek(SeekFrom::Start(addr as FileSize))?;
         self.file.write(&self.block)?;
 
+        if inode_idx == ROOT_INODE_IDX {
+            self.root_inode = inode;
+        }
+
         Ok(())
     }
 
@@ -228,7 +235,7 @@ impl<'a, T: ReadWriteSeek> FileSystem<'a, T> {
         Ok(())
     }
 
-    pub(crate) fn next_free_inode_id(&mut self) -> Result<INodeId> {
+    pub(crate) fn next_free_inode_id(&mut self) -> Result<INodeIndex> {
         todo!();
     }
 
@@ -246,12 +253,10 @@ mod tests {
     #[test]
     fn test_root_dir() {
         let mut data = [0; 100 * BLOCK_SIZE];
-        let mut cursor = Cursor::new(&mut data);
+        let cursor = Cursor::new(&mut data);
         let mut options = FormatVolumeOptions::new(10, 10);
         options.time = 123;
-        format_volume(&mut cursor, options).unwrap();
-
-        let mut fs = FileSystem::new(&mut cursor, FsOptions::new()).unwrap();
+        let mut fs = format_volume(cursor, options).unwrap();
 
         let root = fs.root_dir();
         assert_eq!(ROOT_UID, root.uid());
@@ -266,7 +271,7 @@ mod tests {
             assert_eq!(ROOT_UID, dir.uid());
             assert_eq!(ROOT_UID, dir.gid());
             assert_eq!(0o755, dir.mode());
-            assert_eq!(ROOT_INODE_ID, dir.inode_id());
+            assert_eq!(ROOT_INODE_IDX, dir.inode_idx());
 
             if count == 0 {
                 assert_eq!(".", entry.file_name().unwrap());
@@ -281,10 +286,8 @@ mod tests {
     #[test]
     fn test_create_file() {
         let mut data = [0; 100 * BLOCK_SIZE];
-        let mut cursor = Cursor::new(&mut data);
-        format_volume(&mut cursor, FormatVolumeOptions::new(10, 10)).unwrap();
-
-        let mut fs = FileSystem::new(&mut cursor, FsOptions::new()).unwrap();
+        let cursor = Cursor::new(&mut data);
+        let mut fs = format_volume(cursor, FormatVolumeOptions::new(10, 10)).unwrap();
 
         let mut root_dir = fs.root_dir();
         let mut file = root_dir

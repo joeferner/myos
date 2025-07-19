@@ -1,7 +1,10 @@
 use zerocopy::IntoBytes;
 
 use crate::{
-    directory::PhysicalDirectoryEntry, io::{ReadWriteSeek, SeekFrom}, Addr, BlockIndex, Error, FileSize, FileSystem, FsOptions, INode, Layout, Result, SuperBlock, Time, BLOCK_SIZE, MAGIC, MODE_DIRECTORY, ROOT_INODE_ID, ROOT_UID
+    BLOCK_SIZE, Error, FileSize, FileSystem, FsOptions, INode, Layout, MAGIC, MODE_DIRECTORY,
+    ROOT_INODE_IDX, ROOT_UID, Result, SuperBlock, Time,
+    directory::PhysicalDirectoryEntry,
+    io::{ReadWriteSeek, SeekFrom},
 };
 
 pub struct FormatVolumeOptions {
@@ -20,11 +23,13 @@ impl FormatVolumeOptions {
     }
 }
 
-pub fn format_volume<T: ReadWriteSeek>(file: &mut T, options: FormatVolumeOptions) -> Result<Addr> {
+pub fn format_volume<T: ReadWriteSeek>(
+    mut file: T,
+    options: FormatVolumeOptions,
+) -> Result<FileSystem<T>> {
     file.seek(SeekFrom::Start(0))?;
 
     let mut block = [0; BLOCK_SIZE];
-    let mut block_count: BlockIndex = 0;
 
     // write super block
     let super_block = SuperBlock {
@@ -36,7 +41,6 @@ pub fn format_volume<T: ReadWriteSeek>(file: &mut T, options: FormatVolumeOption
         .write_to_prefix(&mut block)
         .map_err(|_| Error::SizeError)?;
     file.write(&block)?;
-    block_count += 1;
 
     let layout = Layout::new(options.inode_count, options.data_block_count);
 
@@ -44,25 +48,21 @@ pub fn format_volume<T: ReadWriteSeek>(file: &mut T, options: FormatVolumeOption
     block.fill(0);
     for _ in 0..layout.inode_bitmap_block_count {
         file.write(&block)?;
-        block_count += 1;
     }
 
     // write data bitmap
     for _ in 0..layout.data_bitmap_block_count {
         file.write(&block)?;
-        block_count += 1;
     }
 
     // write inodes
     for _ in 0..layout.inode_block_count {
         file.write(&block)?;
-        block_count += 1;
     }
 
     // write data blocks
     for _ in 0..options.data_block_count {
         file.write(&block)?;
-        block_count += 1;
     }
 
     let mut fs_options = FsOptions::new();
@@ -72,8 +72,8 @@ pub fn format_volume<T: ReadWriteSeek>(file: &mut T, options: FormatVolumeOption
     // write root directory data
     block.fill(0);
     let mut offset = 0;
-    offset += PhysicalDirectoryEntry::write(&mut block[offset..], ROOT_INODE_ID, ".")?;
-    offset += PhysicalDirectoryEntry::write(&mut block[offset..], ROOT_INODE_ID, "..")?;
+    offset += PhysicalDirectoryEntry::write(&mut block[offset..], ROOT_INODE_IDX, ".")?;
+    offset += PhysicalDirectoryEntry::write(&mut block[offset..], ROOT_INODE_IDX, "..")?;
     fs.write_data_block(0, block)?;
     let data_size = offset;
 
@@ -83,29 +83,27 @@ pub fn format_volume<T: ReadWriteSeek>(file: &mut T, options: FormatVolumeOption
     root_inode.gid = ROOT_UID;
     root_inode.size = data_size as FileSize;
     root_inode.blocks[0] = 0;
-    fs.write_inode(ROOT_INODE_ID, root_inode)?;
+    fs.write_inode(ROOT_INODE_IDX, root_inode)?;
 
-    file.seek(SeekFrom::End(0))?;
-
-    Ok(block_count as Addr * BLOCK_SIZE as Addr)
+    Ok(fs)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::io::Cursor;
+    use crate::{Addr, io::Cursor};
 
     use super::*;
 
     #[test]
     fn test_minimums() {
         let mut data = [0; 100 * BLOCK_SIZE];
-        let mut cursor = Cursor::new(&mut data);
+        let cursor = Cursor::new(&mut data);
         let options = FormatVolumeOptions::new(10, 10);
-        let size = format_volume(&mut cursor, options).unwrap();
+        let fs = format_volume(cursor, options).unwrap();
         assert_eq!(
             (1 /* super block */ + 1 /* inode bitmap */ + 1 /* data bitmap */ + 1 /* inode data */ + 10/* data */)
                 * BLOCK_SIZE as Addr,
-            size
+            fs.size()
         );
     }
 }

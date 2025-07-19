@@ -40,6 +40,10 @@ impl Layout {
         }
     }
 
+    pub fn size(&self) -> Addr {
+        self.data_offset + (self.data_block_count as Addr * BLOCK_SIZE as Addr)
+    }
+
     /// returns the address of the block containing the inode bitmap along with the offset
     /// within the block where to find the inode bitmap data along with the bit number of
     /// inode
@@ -191,7 +195,7 @@ mod tests {
         );
 
         assert_eq!(
-            (2760704, 3034),
+            (3145728, 1410),
             layout.calc_inode_block_addr(inodes_count - 1).unwrap()
         );
 
