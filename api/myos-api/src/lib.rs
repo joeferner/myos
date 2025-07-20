@@ -10,5 +10,11 @@
     clippy::cast_possible_truncation
 )]
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Uid(pub u32);
-pub const ROOT_UID: Uid = Uid(0);
+
+impl Uid {
+    pub fn root() -> Self {
+        Uid(0)
+    }
+}

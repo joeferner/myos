@@ -1,7 +1,7 @@
 use file_io::{FileIoError, Result};
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
-use crate::INodeBlockIndex;
+use crate::{DataBlockIndex, INodeBlockIndex, inode::INode};
 
 pub const MAGIC: [u8; 4] = *b"vsfs";
 pub const BLOCK_SIZE: usize = 4 * 1024;
@@ -11,25 +11,47 @@ pub(crate) const PHYSICAL_INODES_PER_BLOCK: u32 = (BLOCK_SIZE / PHYSICAL_INODE_S
 /// blocks exceeds this amount additional blocks will be stored in
 /// the indirect_block data
 pub(crate) const IMMEDIATE_BLOCK_COUNT: usize = 12;
+pub(crate) const BLOCK_NOT_SET: u32 = 0;
 
 #[repr(C, packed)]
 #[derive(Debug, Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub(crate) struct PhysicalINode {
-    uid: u32,
-    gid: u32,
-    mode: u16,
+    pub uid: u32,
+    pub gid: u32,
+    pub mode: u16,
     /// size of the file
-    size: u64,
+    pub size: u64,
     /// what time was this file last accessed?
-    time: u64,
+    pub time: u64,
     /// what time was this file created?
-    ctime: u64,
+    pub ctime: u64,
     /// what time was this file last modified?
-    mtime: u64,
+    pub mtime: u64,
     /// index into the blocks where the first x blocks of data can be found, 0 indicates unused block
-    blocks: [u32; IMMEDIATE_BLOCK_COUNT],
+    pub blocks: [u32; IMMEDIATE_BLOCK_COUNT],
     /// if not 0, indicates an index into the block table where you will find more block addresses
-    indirect_block_idx: u32,
+    pub indirect_block_idx: u32,
+}
+
+impl From<INode> for PhysicalINode {
+    fn from(value: INode) -> Self {
+        let mut blocks = [0; IMMEDIATE_BLOCK_COUNT];
+        for i in 0..IMMEDIATE_BLOCK_COUNT {
+            blocks[i] = value.blocks[i].unwrap_or(DataBlockIndex(BLOCK_NOT_SET)).0;
+        }
+
+        Self {
+            uid: value.uid.0,
+            gid: value.gid.0,
+            mode: value.mode.0,
+            size: value.size.0,
+            time: value.time.0,
+            ctime: value.ctime.0,
+            mtime: value.mtime.0,
+            blocks,
+            indirect_block_idx: value.indirect_block_idx.unwrap_or(DataBlockIndex(BLOCK_NOT_SET)).0,
+        }
+    }
 }
 
 #[repr(C, packed)]
@@ -54,11 +76,11 @@ pub(crate) const BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE: usize =
 pub(crate) const MAX_FILE_NAME_LEN: usize = BLOCK_SIZE - BASE_PHYSICAL_DIRECTORY_ENTRY_SIZE;
 
 impl PhysicalDirectoryEntry {
-    pub(crate) fn write(
+    pub(crate) fn write<'a>(
         inode_idx: INodeBlockIndex,
         name: &str,
-        dest_buf: &mut [u8],
-    ) -> Result<usize> {
+        dest_buf: &'a mut [u8],
+    ) -> Result<&'a [u8]> {
         let name_bytes = name.as_bytes();
         if name_bytes.len() > MAX_FILE_NAME_LEN {
             return Err(FileIoError::FilenameTooLong);
@@ -87,6 +109,6 @@ impl PhysicalDirectoryEntry {
             .ok_or(FileIoError::BufferTooSmall)?
             .copy_from_slice(name_bytes);
 
-        Ok(total_len)
+        Ok(&dest_buf[0..total_len])
     }
 }

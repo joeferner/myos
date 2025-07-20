@@ -183,7 +183,7 @@ mod tests {
             .err()
             .unwrap();
         match err {
-            FileIoError::Other(err) => assert_eq!("", err),
+            FileIoError::Other(err) => assert_eq!("INode block index out of range", err),
             _ => panic!("expected size error"),
         }
     }
@@ -232,7 +232,7 @@ mod tests {
             .err()
             .unwrap();
         match err {
-            FileIoError::Other(err) => assert_eq!("", err),
+            FileIoError::Other(err) => assert_eq!("INode block index out of range", err),
             _ => panic!("expected size error"),
         }
     }
@@ -292,7 +292,7 @@ mod tests {
             .err()
             .unwrap();
         match err {
-            FileIoError::Other(err) => assert_eq!("", err),
+            FileIoError::Other(err) => assert_eq!("Data block index out of range", err),
             _ => panic!("expected size error"),
         }
     }
@@ -302,7 +302,7 @@ mod tests {
         let data_block_count = BLOCK_SIZE as u32 * 8 + 100;
         let layout = Layout::new(1, data_block_count);
 
-        assert_eq!(layout.data_offset, layout.calc_data_addr(0).unwrap());
+        assert_eq!(layout.data_offset, layout.calc_data_addr(DataBlockIndex(0)).unwrap());
 
         assert_eq!(
             FilePos(layout.data_offset.0 + BLOCK_SIZE as u64),
@@ -321,7 +321,7 @@ mod tests {
             .err()
             .unwrap();
         match err {
-            FileIoError::Other(err) => assert_eq!("", err),
+            FileIoError::Other(err) => assert_eq!("Data block index out of range", err),
             _ => panic!("expected size error"),
         }
     }

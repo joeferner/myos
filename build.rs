@@ -42,7 +42,7 @@ fn create_ram_disk(out_dir: &Path) -> anyhow::Result<PathBuf> {
     let format_options = vsfs::FormatVolumeOptions::new(inode_count, data_block_count);
     vsfs::format_volume(&mut ram_disk_file, format_options).expect("failed to format volume");
 
-    let fs = vsfs::FileSystem::new(&mut ram_disk_file, vsfs::FsOptions::new()).unwrap();
+    let fs = vsfs::Vsfs::new(&mut ram_disk_file, vsfs::FsOptions::new()).unwrap();
     let mut root_dir = fs.root_dir();
     let mut file = root_dir
         .create_file(CreateFileOptions {

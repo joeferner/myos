@@ -5,6 +5,7 @@ pub enum FileIoError {
     IoError(IoError),
     FilenameTooLong,
     BufferTooSmall,
+    FileAlreadyExists,
     Other(&'static str),
 }
 

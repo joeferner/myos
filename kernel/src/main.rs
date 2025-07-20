@@ -57,7 +57,7 @@ fn kernel_main(boot_info: &'static mut BootInfo) -> ! {
             slice::from_raw_parts_mut(ramdisk_addr as *mut u8, boot_info.ramdisk_len as usize)
         };
         let mut disk = vsfs::io::Cursor::new(data);
-        let mut vsfs = vsfs::FileSystem::new(&mut disk, vsfs::FsOptions::new()).unwrap();
+        let mut vsfs = vsfs::Vsfs::new(&mut disk, vsfs::FsOptions::new()).unwrap();
 
         let root_dir = vsfs.root_dir();
         for entry in root_dir.iter(&mut vsfs).unwrap() {

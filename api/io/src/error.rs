@@ -2,12 +2,13 @@ use core::num::TryFromIntError;
 
 #[derive(Debug, Clone, Copy)]
 pub enum IoError {
-    Other,
+    ReadError,
+    Other(&'static str),
 }
 
 impl From<TryFromIntError> for IoError {
     fn from(_value: TryFromIntError) -> Self {
-        Self::Other
+        Self::Other("could not convert number")
     }
 }
 

@@ -18,8 +18,13 @@ impl<'a> Read for Cursor<'a> {
             return Ok(0);
         }
         let end = (self.pos + buf.len()).min(self.data.len());
-        let data_slice = self.data.get(start..end).ok_or(IoError::Other)?;
-        let buf_slice = buf.get_mut(0..data_slice.len()).ok_or(IoError::Other)?;
+        let data_slice = self
+            .data
+            .get(start..end)
+            .ok_or(IoError::Other("slice out of range"))?;
+        let buf_slice = buf
+            .get_mut(0..data_slice.len())
+            .ok_or(IoError::Other("slice out of range"))?;
         buf_slice.copy_from_slice(data_slice);
         self.pos += data_slice.len();
         Ok(data_slice.len())
@@ -34,9 +39,12 @@ impl<'a> Write for Cursor<'a> {
         }
         let end = self.pos + buf.len();
         if end > self.data.len() {
-            return Err(IoError::Other);
+            return Err(IoError::Other("write past end of array"));
         }
-        let data_slice = self.data.get_mut(start..end).ok_or(IoError::Other)?;
+        let data_slice = self
+            .data
+            .get_mut(start..end)
+            .ok_or(IoError::Other("slice out of range"))?;
         data_slice.copy_from_slice(buf);
         self.pos = end;
         Ok(buf.len())
@@ -56,7 +64,7 @@ impl<'a> Seek for Cursor<'a> {
                     self.pos = new_pos;
                     Ok(new_pos as u64)
                 } else {
-                    Err(IoError::Other)
+                    Err(IoError::Other("seek end out of range"))
                 }
             }
             SeekFrom::Current(v) => {
@@ -64,7 +72,7 @@ impl<'a> Seek for Cursor<'a> {
                     self.pos = new_pos;
                     Ok(new_pos as u64)
                 } else {
-                    Err(IoError::Other)
+                    Err(IoError::Other("seek current out of range"))
                 }
             }
         }

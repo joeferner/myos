@@ -1,10 +1,12 @@
-use file_io::{FileIoError, FilePos, MODE_DIRECTORY, Mode, Result, TimeSeconds};
+use file_io::{FileIoError, Result, TimeSeconds};
 use io::{ReadWriteSeek, SeekFrom};
-use myos_api::ROOT_UID;
 
 use crate::{
-    layout::Layout, physical::{PhysicalDirectoryEntry, PhysicalSuperBlock, BLOCK_SIZE, MAGIC}, DataBlockIndex, FileSystem, FsOptions, INode, ROOT_INODE_IDX
+    Vsfs, FsOptions,
+    layout::Layout,
+    physical::{BLOCK_SIZE, MAGIC, PhysicalSuperBlock},
 };
+use zerocopy::IntoBytes;
 
 pub struct FormatVolumeOptions {
     pub inode_count: u32,
@@ -25,7 +27,7 @@ impl FormatVolumeOptions {
 pub fn format_volume<T: ReadWriteSeek>(
     mut file: T,
     options: FormatVolumeOptions,
-) -> Result<FileSystem<T>> {
+) -> Result<Vsfs<T>> {
     file.seek(SeekFrom::Start(0))?;
 
     let mut block = [0; BLOCK_SIZE];
@@ -65,24 +67,9 @@ pub fn format_volume<T: ReadWriteSeek>(
     }
 
     let mut fs_options = FsOptions::new();
-    fs_options.read_root_inode = false;
-    let mut fs = FileSystem::new(file, fs_options)?;
-
-    // write root directory data
-    block.fill(0);
-    let mut offset: usize = 0;
-    offset += PhysicalDirectoryEntry::write(ROOT_INODE_IDX, ".", &mut block[offset..])?;
-    offset += PhysicalDirectoryEntry::write(ROOT_INODE_IDX, "..", &mut block[offset..])?;
-    fs.write_data_block(0, block)?;
-    let data_size = offset as u64;
-
-    // write root directory inode
-    let mut root_inode = INode::new(Mode(0o755) | MODE_DIRECTORY, options.time);
-    root_inode.uid = ROOT_UID;
-    root_inode.gid = ROOT_UID;
-    root_inode.size = FilePos(data_size);
-    root_inode.blocks[0] = Some(DataBlockIndex(0));
-    fs.write_inode(ROOT_INODE_IDX, root_inode)?;
+    fs_options.init_root_inode = true;
+    fs_options.init_root_inode_time = options.time;
+    let fs = Vsfs::new(file, fs_options)?;
 
     Ok(fs)
 }
@@ -101,8 +88,8 @@ mod tests {
         let fs = format_volume(cursor, options).unwrap();
         assert_eq!(
             (1 /* super block */ + 1 /* inode bitmap */ + 1 /* data bitmap */ + 1 /* inode data */ + 10/* data */)
-                * BLOCK_SIZE as Addr,
-            fs.size()
+                * BLOCK_SIZE as u64,
+            fs.size().0
         );
     }
 }
