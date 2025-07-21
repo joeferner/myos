@@ -6,6 +6,7 @@ pub enum FileIoError {
     FilenameTooLong,
     BufferTooSmall,
     FileAlreadyExists,
+    OutOfDiskSpaceError,
     Other(&'static str),
 }
 

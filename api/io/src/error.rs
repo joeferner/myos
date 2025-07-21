@@ -3,6 +3,7 @@ use core::num::TryFromIntError;
 #[derive(Debug, Clone, Copy)]
 pub enum IoError {
     ReadError,
+    WriteError,
     Other(&'static str),
 }
 

@@ -207,25 +207,109 @@ impl<T: ReadWriteSeek> Vsfs<T> {
         write_pos: ReadWritePos,
         buf: &[u8],
     ) -> Result<()> {
-        let inode = self.read_inode(inode_idx)?;
-        let offset = write_pos.to_file_pos(inode.size)?;
+        if buf.len() == 0 {
+            return Ok(());
+        }
+        let mut inode = self.read_inode(inode_idx)?;
 
-        if offset >= inode.size {
-            todo!("fill out space between size and offset with 0s");
+        // position to start writing the buf
+        let buf_write_offset = write_pos.to_file_pos(inode.size)?;
+
+        let required_data_size = buf_write_offset + buf.len();
+
+        // expand file
+        if required_data_size > inode.size {
+            self.grow_inode_data_size(&mut inode, required_data_size)?;
         }
 
         todo!();
     }
 
+    fn grow_inode_data_size(&mut self, inode: &mut INode, new_size: FilePos) -> Result<()> {
+        if new_size < inode.size {
+            return Err(FileIoError::Other(
+                "expected new size to be larger than current size",
+            ));
+        }
+
+        let required_number_of_data_blocks = new_size.0.div_ceil(BLOCK_SIZE as u64);
+
+        for i in 0..required_number_of_data_blocks.min(IMMEDIATE_BLOCK_COUNT as u64) as usize {
+            if inode.blocks[i].is_none() {
+                inode.blocks[i] = Some(self.allocate_data_block()?);
+            }
+        }
+
+        if required_number_of_data_blocks > IMMEDIATE_BLOCK_COUNT as u64 {
+            todo!();
+        }
+
+        Ok(())
+    }
+
+    fn read_block(&mut self, addr: FilePos) -> Result<()> {
+        self.file.seek(SeekFrom::Start(addr.0))?;
+        let read = self.file.read(&mut self.block)?;
+        if read != BLOCK_SIZE {
+            return Err(FileIoError::IoError(IoError::ReadError));
+        }
+        Ok(())
+    }
+
+    fn write_block(&mut self, addr: FilePos) -> Result<()> {
+        self.file.seek(SeekFrom::Start(addr.0))?;
+        let written = self.file.write(&mut self.block)?;
+        if written != BLOCK_SIZE {
+            return Err(FileIoError::IoError(IoError::WriteError));
+        }
+        Ok(())
+    }
+
+    fn allocate_data_block(&mut self) -> Result<DataBlockIndex> {
+        let mut block_idx = DataBlockIndex(0);
+        for data_block_block_idx in 0..self.layout.data_bitmap_block_count {
+            let data_block_bitmap_block_addr = FilePos(
+                self.layout.data_bitmap_offset.0
+                    + (data_block_block_idx as u64 * BLOCK_SIZE as u64),
+            );
+            self.read_block(data_block_bitmap_block_addr)?;
+            for block_offset in 0..BLOCK_SIZE {
+                if self.block[block_offset] != 0xff {
+                    let b = self.block[block_offset];
+                    for i in 0..8 {
+                        if (b >> i) & 1 == 0 {
+                            self.block[block_offset] = b | (1 << i);
+                            self.write_block(data_block_bitmap_block_addr)?;
+
+                            self.block.fill(0);
+                            let addr = self.layout.calc_data_addr(block_idx)?;
+                            self.write_block(addr)?;
+
+                            return Ok(block_idx);
+                        } else {
+                            block_idx.0 += 1;
+                        }
+                    }
+                } else {
+                    block_idx.0 += 8;
+                }
+                if block_idx.0 >= self.layout.data_block_count {
+                    return Err(FileIoError::OutOfDiskSpaceError);
+                }
+            }
+        }
+        Err(FileIoError::OutOfDiskSpaceError)
+    }
+
     pub(crate) fn create_inode(&mut self, inode: INode) -> Result<INodeBlockIndex> {
         let mut inode_idx: Option<INodeBlockIndex> = None;
-        self.file
-            .seek(SeekFrom::Start(self.layout.inode_bitmap_offset.0))?;
+        let mut read_pos = self.layout.inode_bitmap_offset;
         let mut byte_offset = 0;
         let mut bit_offset = 0;
         for i in 0..self.layout.inode_count {
             if i.is_multiple_of(PHYSICAL_INODES_PER_BLOCK) {
-                self.file.read(&mut self.block)?;
+                self.read_block(read_pos)?;
+                read_pos += BLOCK_SIZE;
                 byte_offset = 0;
                 bit_offset = 0;
             }
@@ -249,14 +333,19 @@ impl<T: ReadWriteSeek> Vsfs<T> {
         }
     }
 
-    fn calc_data_block_idx(&self, inode: &INode, offset: FilePos) -> Result<Option<DataBlockIndex>> {
+    fn calc_data_block_idx(
+        &self,
+        inode: &INode,
+        offset: FilePos,
+    ) -> Result<Option<DataBlockIndex>> {
         if !(offset.0).is_multiple_of(BLOCK_SIZE as u64) {
             return Err(FileIoError::Other("must be a multiple of block size"));
         }
-        let block_offset = offset.0 / BLOCK_SIZE as u64;
+        // index within the inode block list
+        let inode_block_idx = offset.0 / BLOCK_SIZE as u64;
 
-        if block_offset < IMMEDIATE_BLOCK_COUNT as u64 {
-            let data_block_idx = inode.blocks[block_offset as usize];
+        if inode_block_idx < IMMEDIATE_BLOCK_COUNT as u64 {
+            let data_block_idx = inode.blocks[inode_block_idx as usize];
             return Ok(data_block_idx);
         }
 
