@@ -21,9 +21,9 @@ pub(crate) struct SuperBlock {
     /// Inodes count
     inodes_count: U32,
     /// Blocks count
-    blocks_count_lo: U32,      
+    blocks_count_lo: U32,
     /// Reserved blocks count
-    r_blocks_count_lo: U32,  
+    r_blocks_count_lo: U32,
     /// Free blocks count
     free_blocks_count_lo: U32,
     /*10*/
@@ -33,7 +33,7 @@ pub(crate) struct SuperBlock {
     first_data_block: U32,
     /// Block size
     log_block_size: U32,
-    log_cluster_size: U32,  /* Allocation cluster size */
+    log_cluster_size: U32, /* Allocation cluster size */
     /*20*/
     blocks_per_group: U32,   /* # Blocks per group */
     clusters_per_group: U32, /* # Clusters per group */
