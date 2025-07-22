@@ -10,8 +10,7 @@ use zerocopy::{
 };
 
 use crate::{
-    source::Ext4Source,
-    utils::{hi_low_to_date_time, u64_from_hi_lo},
+    source::Ext4Source, types::INodeIndex, utils::{hi_low_to_date_time, u64_from_hi_lo}
 };
 
 pub(crate) const SUPER_BLOCK_SIZE: usize = core::mem::size_of::<SuperBlock>();
@@ -335,6 +334,10 @@ impl SuperBlock {
 
     pub fn block_group_descriptor_count(&self) -> u32 {
         self.blocks_count().div_ceil(self.blocks_per_group.get() as u64) as u32
+    }
+    
+    pub fn get_bgd_file_pos_for_inode_index(&self, inode_idx: &INodeIndex) -> FilePos {
+        todo!()
     }
 }
 

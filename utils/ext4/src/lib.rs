@@ -10,16 +10,13 @@
     clippy::cast_possible_truncation
 )]
 
-use file_io::{FileIoError, Result};
+use file_io::{FileIoError, FilePos, Result};
 
 use crate::{
     directory::Directory,
     source::Ext4Source,
     types::{
-        INodeIndex,
-        block_group_descriptor::{BLOCK_GROUP_DESCRIPTOR_SIZE, BlockGroupDescriptor},
-        inode::INode,
-        super_block::{SUPER_BLOCK_POS, SUPER_BLOCK_SIZE, SuperBlock},
+        block_group_descriptor::{BlockGroupDescriptor, BLOCK_GROUP_DESCRIPTOR_SIZE}, inode::INode, super_block::{self, SuperBlock, SUPER_BLOCK_POS, SUPER_BLOCK_SIZE}, INodeIndex
     },
 };
 
@@ -56,7 +53,7 @@ impl<T: Ext4Source> Ext4<T> {
     }
 
     pub fn root_dir(&self) -> Result<Directory> {
-        let inode = self.read_inode(INodeIndex::root())?;
+        let inode = self.read_inode(&INodeIndex::root())?;
         if let Some(inode) = inode {
             Ok(Directory::new(INodeIndex::root(), inode))
         } else {
@@ -64,8 +61,14 @@ impl<T: Ext4Source> Ext4<T> {
         }
     }
 
-    pub fn read_inode(&self, inode_idx: INodeIndex) -> Result<Option<INode>> {
-        
+    pub fn read_inode(&self, inode_idx: &INodeIndex) -> Result<Option<INode>> {
+        let bgd = self.read_bgd_for_inode_index(&inode_idx);
+        todo!();
+    }
+    
+    fn read_bgd_for_inode_index<>(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {
+        let bgd_file_pos = self.super_block.get_bgd_file_pos_for_inode_index(inode_idx);
+        todo!();
     }
 }
 

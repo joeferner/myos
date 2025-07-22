@@ -8,5 +8,7 @@ use crate::source::Ext4Source;
 pub(crate) struct INode {}
 
 impl INode {
-    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: &FilePos) -> Result<Self> {}
+    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: &FilePos) -> Result<Self> {
+        todo!();
+    }
 }
