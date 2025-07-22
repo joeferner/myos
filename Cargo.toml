@@ -6,7 +6,9 @@ default-run = "myos"
 
 [workspace]
 members = [
-    "api/file-io", "api/io", "api/myos-api",
+    "api/file-io",
+    "api/io",
+    "api/myos-api",
     "common",
     "drivers/framebuffer",
     "drivers/pci",
@@ -15,7 +17,7 @@ members = [
     "utils/allocator",
     "utils/ansi-escape",
     "utils/pc-screen-font",
-    "utils/vsfs",
+    "utils/ext4",
 ]
 
 [workspace.package]
@@ -42,4 +44,4 @@ ovmf-prebuilt = "0.2.3"
 # kernel = { path = "./kernel", artifact = "bin", target = "x86_64-unknown-none" }
 bootloader = "0.11.3"
 anyhow = "1.0.98"
-vsfs = { path = "./utils/vsfs", features = ["std"] }
+ext4 = { path = "./utils/ext4", features = ["std"] }

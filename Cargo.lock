@@ -262,6 +262,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ext4"
+version = "0.1.0"
+dependencies = [
+ "file-io",
+ "io",
+ "myos-api",
+ "spin",
+ "zerocopy",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -415,6 +426,9 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 [[package]]
 name = "io"
 version = "0.1.0"
+dependencies = [
+ "zerocopy",
+]
 
 [[package]]
 name = "itoa"
@@ -441,12 +455,12 @@ dependencies = [
  "bootloader_api",
  "common",
  "conquer-once",
+ "ext4",
  "framebuffer",
  "pc-screen-font",
  "pci",
  "serial-port",
  "spin",
- "vsfs",
  "x86_64",
 ]
 
@@ -545,8 +559,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bootloader",
+ "ext4",
  "ovmf-prebuilt",
- "vsfs",
 ]
 
 [[package]]
@@ -966,16 +980,6 @@ name = "volatile"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "442887c63f2c839b346c192d047a7c87e73d0689c9157b00b53dcc27dd5ea793"
-
-[[package]]
-name = "vsfs"
-version = "0.1.0"
-dependencies = [
- "file-io",
- "io",
- "myos-api",
- "zerocopy",
-]
 
 [[package]]
 name = "wasi"

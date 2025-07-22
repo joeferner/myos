@@ -163,7 +163,7 @@ impl Read for std::fs::File {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         (self as &mut dyn std::io::Read)
             .read(buf)
-            .map_err(Error::StdIoError)
+            .map_err(IoError::StdIoError)
     }
 }
 
@@ -172,17 +172,17 @@ impl Write for std::fs::File {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         (self as &mut dyn std::io::Write)
             .write(buf)
-            .map_err(Error::StdIoError)
+            .map_err(IoError::StdIoError)
     }
 }
 
 #[cfg(feature = "std")]
 impl Seek for std::fs::File {
-    fn seek(&mut self, pos: SeekFrom) -> Result<FilePos> {
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         let new_offset = (self as &mut dyn std::io::Seek)
             .seek(pos.into())
-            .map_err(Error::StdIoError)?;
-        Ok(new_offset as FilePos)
+            .map_err(IoError::StdIoError)?;
+        Ok(new_offset)
     }
 }
 

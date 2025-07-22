@@ -1,5 +1,5 @@
 [package]
-name = "vsfs"
+name = "ext4"
 edition.workspace = true
 version.workspace = true
 
@@ -8,6 +8,10 @@ zerocopy = { workspace = true }
 myos-api = { path = "../../api/myos-api" }
 io = { path = "../../api/io" }
 file-io = { path = "../../api/file-io" }
+spin = { workspace = true }
+
+[dev-dependencies]
+io = { path = "../../api/io", features = ["std"] }
 
 [features]
 std = []

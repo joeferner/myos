@@ -9,7 +9,7 @@ conquer-once = { workspace = true }
 pc-screen-font = { path = "../utils/pc-screen-font" }
 ansi-escape = { path = "../utils/ansi-escape" }
 allocator = { path = "../utils/allocator" }
-vsfs = { path = "../utils/vsfs" }
+ext4 = { path = "../utils/ext4" }
 pci = { path = "../drivers/pci" }
 framebuffer = { path = "../drivers/framebuffer" }
 serial-port = { path = "../drivers/serial-port" }

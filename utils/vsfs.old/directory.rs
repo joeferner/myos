@@ -89,13 +89,6 @@ impl Directory {
         }
         Ok(false)
     }
-
-    pub fn iter<'a, T: ReadWriteSeek>(
-        &self,
-        fs: &'a mut Vsfs<T>,
-    ) -> Result<DirectoryIterator<'a, T>> {
-        DirectoryIterator::new(fs, self.inode_idx)
-    }
 }
 
 pub struct CreateFileOptions<'a> {

@@ -1,6 +1,6 @@
 use io::IoError;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub enum FileIoError {
     IoError(IoError),
     FilenameTooLong,
