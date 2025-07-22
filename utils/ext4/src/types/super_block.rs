@@ -11,7 +11,7 @@ use zerocopy::{
 
 use crate::{
     source::Ext4Source,
-    utils::{u64_from_hi_lo, hi_low_to_date_time},
+    utils::{hi_low_to_date_time, u64_from_hi_lo},
 };
 
 pub(crate) const SUPER_BLOCK_SIZE: usize = core::mem::size_of::<SuperBlock>();
@@ -259,7 +259,7 @@ pub(crate) struct SuperBlock {
 }
 
 impl SuperBlock {
-    pub(crate) fn read<T: Ext4Source>(source: &T) -> Result<(Self, FilePos)> {
+    pub(crate) fn read<T: Ext4Source>(source: &T) -> Result<Self> {
         let mut buf = [0; SUPER_BLOCK_SIZE];
         source.read(&SUPER_BLOCK_POS, &mut buf)?;
         let super_block = SuperBlock::read_from_bytes(&buf).map_err(|err| {
@@ -273,7 +273,7 @@ impl SuperBlock {
             return Err(FileIoError::Other("ext4 magic mismatch"));
         }
 
-        Ok((super_block, SUPER_BLOCK_POS + SUPER_BLOCK_SIZE))
+        Ok(super_block)
     }
 
     pub fn blocks_count(&self) -> u64 {
@@ -331,6 +331,10 @@ impl SuperBlock {
 
     pub fn journal_uuid(&self) -> Uuid {
         uuid::Builder::from_bytes(self.journal_uuid).into_uuid()
+    }
+
+    pub fn block_group_descriptor_count(&self) -> u32 {
+        self.blocks_count().div_ceil(self.blocks_per_group.get() as u64) as u32
     }
 }
 

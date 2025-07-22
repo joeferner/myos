@@ -1,8 +1,21 @@
 use file_io::Result;
 
-use crate::{Ext4, source::Ext4Source};
+use crate::{
+    Ext4,
+    source::Ext4Source,
+    types::{INodeIndex, inode::INode},
+};
 
-pub struct Directory {}
+pub struct Directory {
+    inode_idx: INodeIndex,
+    inode: INode,
+}
+
+impl Directory {
+    pub(crate) fn new(inode_idx: INodeIndex, inode: INode) -> Self {
+        Self { inode_idx, inode }
+    }
+}
 
 impl Directory {
     pub fn iter<'a, T: Ext4Source>(&self, fs: &'a Ext4<T>) -> Result<DirectoryIterator<'a, T>> {
@@ -23,5 +36,4 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
 }
 
 #[derive(Debug)]
-pub struct DirectoryEntry {
-}
+pub struct DirectoryEntry {}

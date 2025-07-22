@@ -47,14 +47,6 @@ impl DataBlockIndex {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct INodeBlockIndex(pub u32);
-
-impl INodeBlockIndex {
-    pub(crate) fn root() -> Self {
-        INodeBlockIndex(2)
-    }
-}
 
 pub struct FsOptions {
     pub(crate) init_root_inode: bool,

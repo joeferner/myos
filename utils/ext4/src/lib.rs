@@ -10,12 +10,17 @@
     clippy::cast_possible_truncation
 )]
 
-use file_io::Result;
+use file_io::{FileIoError, Result};
 
 use crate::{
     directory::Directory,
     source::Ext4Source,
-    types::{block_group_descriptor::BlockGroupDescriptor, super_block::SuperBlock},
+    types::{
+        INodeIndex,
+        block_group_descriptor::{BLOCK_GROUP_DESCRIPTOR_SIZE, BlockGroupDescriptor},
+        inode::INode,
+        super_block::{SUPER_BLOCK_POS, SUPER_BLOCK_SIZE, SuperBlock},
+    },
 };
 
 mod directory;
@@ -24,34 +29,43 @@ mod types;
 mod utils;
 
 pub struct Ext4<T: Ext4Source> {
-    _source: T,
+    source: T,
+    super_block: SuperBlock,
 }
 
 impl<T: Ext4Source> Ext4<T> {
     pub fn new(source: T) -> Result<Self> {
-        let r = SuperBlock::read(&source)?;
-        let super_block = r.0;
-        let mut file_pos = r.1;
+        let super_block = SuperBlock::read(&source)?;
 
         #[cfg(test)]
         println!("{:?}", super_block);
 
-        for _ in 0..10 {
-            let r = BlockGroupDescriptor::read(&source, &file_pos)?;
-            let bgd = r.0;
-            file_pos = r.1;
+        let mut file_pos = SUPER_BLOCK_POS + SUPER_BLOCK_SIZE;
+        for _ in 0..super_block.block_group_descriptor_count() {
+            let bgd = BlockGroupDescriptor::read(&source, &file_pos)?;
+            file_pos += BLOCK_GROUP_DESCRIPTOR_SIZE;
 
             #[cfg(test)]
             println!("{:?}", bgd);
         }
 
-        Ok(Self { _source: source })
+        Ok(Self {
+            source,
+            super_block,
+        })
     }
 
     pub fn root_dir(&self) -> Result<Directory> {
-        // let root_inode = self.read_inode(INodeBlockIndex::root())?;
-        // Ok(Directory::new(INodeBlockIndex::root(), root_inode))
-        todo!();
+        let inode = self.read_inode(INodeIndex::root())?;
+        if let Some(inode) = inode {
+            Ok(Directory::new(INodeIndex::root(), inode))
+        } else {
+            Err(FileIoError::Other("could not read root inode"))
+        }
+    }
+
+    pub fn read_inode(&self, inode_idx: INodeIndex) -> Result<Option<INode>> {
+        
     }
 }
 
