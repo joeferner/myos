@@ -1,6 +1,6 @@
 use core::{ffi::CStr, fmt::Debug};
 
-use chrono::{DateTime, NaiveDateTime};
+use chrono::NaiveDateTime;
 use file_io::{FileIoError, FilePos, Result};
 use io::IoError;
 use uuid::Uuid;
@@ -9,11 +9,19 @@ use zerocopy::{
     little_endian::{U16, U32, U64},
 };
 
-use crate::{source::Ext4Source, utils::from_hi_lo};
+use crate::{
+    source::Ext4Source,
+    utils::{u64_from_hi_lo, hi_low_to_date_time},
+};
 
 pub(crate) const SUPER_BLOCK_SIZE: usize = core::mem::size_of::<SuperBlock>();
 pub(crate) const SUPER_BLOCK_POS: FilePos = FilePos(0x400);
 pub(crate) const EXT4_MAGIC: u16 = 0xef53;
+
+// Reference
+//   https://blogs.oracle.com/linux/post/understanding-ext4-disk-layout-part-1
+//   https://thiscouldbebetter.wordpress.com/2021/10/23/creating-an-ext4-filesystem-image-file/
+//   https://docs.kernel.org/filesystems/ext4/
 
 #[repr(C, packed)]
 #[derive(Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
@@ -251,9 +259,9 @@ pub(crate) struct SuperBlock {
 }
 
 impl SuperBlock {
-    pub(crate) fn read<T: Ext4Source>(source: &T) -> Result<Self> {
+    pub(crate) fn read<T: Ext4Source>(source: &T) -> Result<(Self, FilePos)> {
         let mut buf = [0; SUPER_BLOCK_SIZE];
-        source.read(SUPER_BLOCK_POS, &mut buf)?;
+        source.read(&SUPER_BLOCK_POS, &mut buf)?;
         let super_block = SuperBlock::read_from_bytes(&buf).map_err(|err| {
             FileIoError::IoError(IoError::from_zerocopy_err(
                 "failed to read super block from bytes",
@@ -265,20 +273,19 @@ impl SuperBlock {
             return Err(FileIoError::Other("ext4 magic mismatch"));
         }
 
-        let super_block: SuperBlock = super_block.into();
-        Ok(super_block)
+        Ok((super_block, SUPER_BLOCK_POS + SUPER_BLOCK_SIZE))
     }
 
     pub fn blocks_count(&self) -> u64 {
-        from_hi_lo(self.blocks_count_hi.get(), self.blocks_count_lo.get())
+        u64_from_hi_lo(self.blocks_count_hi.get(), self.blocks_count_lo.get())
     }
 
     pub fn reserved_blocks_count(&self) -> u64 {
-        from_hi_lo(self.r_blocks_count_hi.get(), self.r_blocks_count_lo.get())
+        u64_from_hi_lo(self.r_blocks_count_hi.get(), self.r_blocks_count_lo.get())
     }
 
     pub fn free_blocks_count(&self) -> u64 {
-        from_hi_lo(
+        u64_from_hi_lo(
             self.free_blocks_count_hi.get(),
             self.free_blocks_count_lo.get(),
         )
@@ -324,21 +331,6 @@ impl SuperBlock {
 
     pub fn journal_uuid(&self) -> Uuid {
         uuid::Builder::from_bytes(self.journal_uuid).into_uuid()
-    }
-}
-
-fn hi_low_to_date_time(hi: u32, lo: u32) -> Result<Option<NaiveDateTime>> {
-    let ms: i64 = (from_hi_lo(hi, lo) * 1000)
-        .try_into()
-        .map_err(|_| FileIoError::Other("invalid time"))?;
-    if ms == 0 {
-        Ok(None)
-    } else {
-        Ok(Some(
-            DateTime::from_timestamp_millis(ms)
-                .ok_or_else(|| FileIoError::Other("invalid time"))?
-                .naive_utc(),
-        ))
     }
 }
 

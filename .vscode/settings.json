@@ -2,6 +2,7 @@
     "cSpell.words": [
         "bitflags",
         "byteorder",
+        "chrono",
         "inodes",
         "myos",
         "ramdisk",
