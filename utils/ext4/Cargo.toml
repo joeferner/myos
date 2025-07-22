@@ -9,6 +9,7 @@ myos-api = { path = "../../api/myos-api" }
 io = { path = "../../api/io" }
 file-io = { path = "../../api/file-io" }
 spin = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 io = { path = "../../api/io", features = ["std"] }

@@ -36,6 +36,7 @@ zune-ppm = "0.4.0"
 zerocopy = { version = "0.8.26", features = ["derive"] }
 assert_hex = "0.4.1"
 bit_field = "0.10.2"
+chrono = { version = "0.4.41", default-features = false }
 
 [dependencies]
 ovmf-prebuilt = "0.2.3"
