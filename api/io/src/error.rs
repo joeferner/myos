@@ -46,8 +46,10 @@ impl IoError {
     }
 
     #[cfg(feature = "std")]
-    pub fn create_partial_read_error(read: usize, expected: usize) -> Self {
-        IoError::ReadError(format!("partial read error, expected {expected}, read {read}"))
+    pub fn create_partial_read_error(file_pos: u64, read: usize, expected: usize) -> Self {
+        IoError::ReadError(format!(
+            "partial read error, expected {expected}, read {read} at file_pos {file_pos}"
+        ))
     }
 }
 

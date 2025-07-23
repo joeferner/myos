@@ -10,7 +10,7 @@
     clippy::cast_possible_truncation
 )]
 
-use file_io::{FileIoError, Result};
+use file_io::{FileIoError, FilePos, Result};
 
 use crate::{
     directory::Directory,
@@ -75,7 +75,8 @@ impl<T: Ext4Source> Ext4<T> {
             &bgd.block_bitmap(),
             self.super_block.block_size(),
         )?;
-        let relative_inode_idx = INodeIndex::new(inode_idx.real_index() % self.super_block.blocks_per_group());
+        let relative_inode_idx =
+            INodeIndex::new(inode_idx.real_index() % self.super_block.blocks_per_group());
         if !bitmap.is_readable(relative_inode_idx) {
             return Ok(None);
         }
@@ -92,6 +93,16 @@ impl<T: Ext4Source> Ext4<T> {
         println!("inode {:?}", inode);
 
         Ok(Some(inode))
+    }
+
+    pub(crate) fn read(&self, inode: &INode, offset: &FilePos, buf: &mut [u8]) -> Result<()> {
+        let (data_block_idx, block_count) = inode.get_data_extent(offset, self.super_block.block_size())?;
+
+         #[cfg(test)]
+        println!("data_block_idx {data_block_idx:?}, block_count {block_count}");
+        // self.source.read(&file_pos, buf)?;
+
+        todo!();
     }
 
     fn read_bgd_for_inode_index(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {

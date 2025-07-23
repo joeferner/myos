@@ -4,6 +4,8 @@ pub(crate) mod bitmap;
 pub(crate) mod block_group_descriptor;
 pub(crate) mod inode;
 pub(crate) mod super_block;
+pub(crate) mod directory_entry;
+pub(crate) mod extent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct BlockIndex(pub u64);

@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use bitflags::bitflags;
 use chrono::NaiveDateTime;
-use file_io::{FileIoError, Result};
+use file_io::{FileIoError, FilePos, Result};
 use io::IoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,
@@ -11,7 +11,10 @@ use zerocopy::{
 
 use crate::{
     source::Ext4Source,
-    types::{BlockIndex, INodeIndex},
+    types::{
+        BlockIndex, INodeIndex,
+        extent::{EXTENT_HEADER_MAGIC, EXTENT_SIZE, Extent, ExtentHeader},
+    },
     utils::{hi_low_to_date_time, u32_from_hi_lo, u64_from_hi_lo},
 };
 
@@ -47,7 +50,7 @@ pub(crate) struct INode {
     i_version: U32,
 
     /// Pointers to blocks
-    block: [U32; EXT4_N_BLOCKS],
+    block: [u8; 4 * EXT4_N_BLOCKS],
     /// File version (for NFS)
     generation: U32,
     /// File ACL
@@ -186,6 +189,47 @@ impl INode {
         Ok(inode)
     }
 
+    pub fn get_data_extent(&self, offset: &FilePos, block_size: u32) -> Result<(BlockIndex, u16)> {
+        if (self.flags() & INodeFileFlags::EXTENTS) != INodeFileFlags::EXTENTS {
+            todo!();
+        }
+
+        let inode_block_idx = offset.0 / block_size as u64;
+        let block_offset = (offset.0 % block_size as u64) as u32;
+
+        let (extent_header, rest) = ExtentHeader::read_from_prefix(&self.block).map_err(|err| {
+            FileIoError::IoError(IoError::from_zerocopy_err(
+                "failed reading extent header",
+                err,
+            ))
+        })?;
+        if extent_header.magic != EXTENT_HEADER_MAGIC {
+            return Err(FileIoError::Other("invalid extent header magic"));
+        }
+
+        #[cfg(test)]
+        println!("extent_header {:?} {:?}", extent_header, rest);
+
+        if extent_header.depth == 0 {
+            let rest = rest
+                .get(inode_block_idx as usize * EXTENT_SIZE..)
+                .ok_or(FileIoError::Other("index out of bounds"))?;
+            let (extent, _) = Extent::read_from_prefix(&rest).map_err(|err| {
+                FileIoError::IoError(IoError::from_zerocopy_err(
+                    "failed reading header block index",
+                    err,
+                ))
+            })?;
+
+            #[cfg(test)]
+            println!("extent {:?}", extent);
+
+            return Ok((BlockIndex(extent.start()), extent.len.get()));
+        }
+
+        todo!("not in header");
+    }
+
     pub fn access_time(&self) -> Result<Option<NaiveDateTime>> {
         hi_low_to_date_time(0, self.atime.get())
     }
@@ -210,8 +254,8 @@ impl INode {
         hi_low_to_date_time(0, self.crtime.get())
     }
 
-    pub fn size(&self) -> u64 {
-        u64_from_hi_lo(self.size_high.get(), self.size_lo.get())
+    pub fn size(&self) -> FilePos {
+        FilePos(u64_from_hi_lo(self.size_high.get(), self.size_lo.get()))
     }
 
     pub fn blocks(&self) -> u64 {

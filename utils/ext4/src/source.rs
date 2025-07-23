@@ -29,10 +29,15 @@ impl Ext4Source for FileExt4Source {
         let mut file = self.file.lock();
         file.seek(SeekFrom::Start(file_pos.0))
             .map_err(|err| FileIoError::IoError(IoError::StdIoError(err)))?;
-        let read = file.read(buf)
+        let read = file
+            .read(buf)
             .map_err(|err| FileIoError::IoError(IoError::StdIoError(err)))?;
         if read != buf.len() {
-            return Err(FileIoError::IoError(IoError::create_partial_read_error(read, buf.len())));
+            return Err(FileIoError::IoError(IoError::create_partial_read_error(
+                file_pos.0,
+                read,
+                buf.len(),
+            )));
         }
         Ok(())
     }
