@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 
+use bitflags::bitflags;
 use chrono::NaiveDateTime;
 use file_io::{FileIoError, Result};
 use io::IoError;
@@ -11,7 +12,7 @@ use zerocopy::{
 use crate::{
     source::Ext4Source,
     types::{BlockIndex, INodeIndex},
-    utils::hi_low_to_date_time,
+    utils::{hi_low_to_date_time, u32_from_hi_lo, u64_from_hi_lo},
 };
 
 pub(crate) const INODE_SIZE: usize = core::mem::size_of::<INode>();
@@ -23,7 +24,7 @@ pub(crate) struct INode {
     /// File mode
     mode: U16,
     /// Low 16 bits of Owner Uid
-    uid: U16,
+    i_uid: U16,
     /// Size in bytes
     size_lo: U32,
     /// Access time
@@ -35,38 +36,76 @@ pub(crate) struct INode {
     /// Deletion Time
     dtime: U32,
     /// Low 16 bits of Group Id
-    gid: U16,
+    i_gid: U16,
     /// Links count
     links_count: U16,
     /// Blocks count
     blocks_lo: U32,
     /// File flags
-    flags: U32,
+    i_flags: U32,
     // version
-    version: U32,
+    i_version: U32,
 
-    i_block: [U32; EXT4_N_BLOCKS], /* Pointers to blocks */
-    i_generation: U32,             /* File version (for NFS) */
-    i_file_acl_lo: U32,            /* File ACL */
-    i_size_high: U32,
-    i_obso_faddr: U32, /* Obsoleted fragment address */
+    /// Pointers to blocks
+    block: [U32; EXT4_N_BLOCKS],
+    /// File version (for NFS)
+    generation: U32,
+    /// File ACL
+    file_acl_lo: U32,
+    size_high: U32,
+    /// Obsoleted fragment address
+    obso_faddr: U32,
 
-    l_i_blocks_high: U16, /* were l_i_reserved1 */
-    l_i_file_acl_high: U16,
-    l_i_uid_high: U16,    /* these 2 fields */
-    l_i_gid_high: U16,    /* were reserved2[0] */
-    l_i_checksum_lo: U16, /* crc32c(uuid+inum+inode) LE */
-    l_i_reserved: U16,
+    /// werereserved1
+    blocks_high: U16,
+    file_acl_high: U16,
+    /// these 2 fields
+    uid_high: U16,
+    /// were reserved2[0]
+    gid_high: U16,
+    /// crc32c(uuid+inum+inode) LE
+    checksum_lo: U16,
+    reserved: U16,
 
-    i_extra_isize: U16,
-    i_checksum_hi: U16,  /* crc32c(uuid+inum+inode) BE */
-    i_ctime_extra: U32,  /* extra Change time      (nsec << 2 | epoch) */
-    i_mtime_extra: U32,  /* extra Modification time(nsec << 2 | epoch) */
-    i_atime_extra: U32,  /* extra Access time      (nsec << 2 | epoch) */
-    i_crtime: U32,       /* File Creation time */
-    i_crtime_extra: U32, /* extra FileCreationtime (nsec << 2 | epoch) */
-    i_version_hi: U32,   /* high 32 bits for 64-bit version */
-    i_projid: U32,       /* Project ID */
+    extra_isize: U16,
+    /// crc32c(uuid+inum+inode) BE
+    checksum_hi: U16,
+    /// extra Change time (nsec << 2 | epoch)
+    ctime_extra: U32,
+    /// extra Modification time (nsec << 2 | epoch)
+    mtime_extra: U32,
+    /// extra Access time (nsec << 2 | epoch)
+    atime_extra: U32,
+    /// File Creation time
+    crtime: U32,
+    /// extra FileCreationtime (nsec << 2 | epoch)
+    crtime_extra: U32,
+    /// high 32 bits for 64-bit version
+    version_hi: U32,
+    /// Project ID
+    projid: U32,
+}
+
+bitflags! {
+    /// see https://www.kernel.org/doc/html/latest/filesystems/ext4/inodes.html#i-flags
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct INodeFileFlags: u32 {
+        /// This file requires secure deletion
+        const EXT4_SECRM_FL = 0x0001;
+        /// This file should be preserved, should undeletion be desired
+        const EXT4_UNRM_FL = 0x0002;
+        /// File is compressed
+        const EXT4_COMPR_FL = 0x0004;
+        /// All writes to the file must be synchronous
+        const EXT4_SYNC_FL = 0x0008;
+        /// File is immutable
+        const EXT4_IMMUTABLE_FL = 0x0010;
+        /// File can only be appended
+        const EXT4_APPEND_FL = 0x0020;
+
+        /// Inode uses extents
+        const EXT4_EXTENTS_FL = 0x80000;
+    }
 }
 
 impl INode {
@@ -109,53 +148,81 @@ impl INode {
     }
 
     pub fn create_time(&self) -> Result<Option<NaiveDateTime>> {
+        // todo ctime_extra
         hi_low_to_date_time(0, self.ctime.get())
     }
 
     pub fn modified_time(&self) -> Result<Option<NaiveDateTime>> {
+        // todo mtime_extra
         hi_low_to_date_time(0, self.mtime.get())
     }
 
     pub fn deletion_time(&self) -> Result<Option<NaiveDateTime>> {
+        // todo atime_extra
         hi_low_to_date_time(0, self.dtime.get())
+    }
+
+    pub fn creation_time(&self) -> Result<Option<NaiveDateTime>> {
+        // todo crtime_extra
+        hi_low_to_date_time(0, self.crtime.get())
+    }
+
+    pub fn size(&self) -> u64 {
+        u64_from_hi_lo(self.size_high.get(), self.size_lo.get())
+    }
+
+    pub fn blocks(&self) -> u64 {
+        u64_from_hi_lo(self.blocks_high.get() as u32, self.blocks_lo.get())
+    }
+
+    pub fn file_acl(&self) -> u64 {
+        u64_from_hi_lo(self.file_acl_high.get() as u32, self.file_acl_lo.get())
+    }
+
+    pub fn uid(&self) -> u32 {
+        u32_from_hi_lo(self.uid_high.get(), self.i_uid.get())
+    }
+
+    pub fn gid(&self) -> u32 {
+        u32_from_hi_lo(self.gid_high.get(), self.i_gid.get())
+    }
+
+    pub fn checksum(&self) -> u32 {
+        u32_from_hi_lo(self.checksum_hi.get(), self.checksum_lo.get())
+    }
+
+    pub fn version(&self) -> u64 {
+        u64_from_hi_lo(self.version_hi.get(), self.i_version.get())
+    }
+
+    pub fn flags(&self) -> INodeFileFlags {
+        INodeFileFlags::from_bits_retain(self.i_flags.get())
     }
 }
 
 impl Debug for INode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("INode")
-            .field("mode", &self.mode.get())
-            .field("uid", &self.uid.get())
-            .field("size_lo", &self.size_lo.get())
+            .field("mode", &format_args!("0o{:o}", self.mode.get()))
+            .field("uid", &self.uid())
+            .field("gid", &self.gid())
+            .field("size", &self.size())
             .field("access_time", &self.access_time())
             .field("create_time", &self.create_time())
             .field("modified_time", &self.modified_time())
             .field("deletion_time", &self.deletion_time())
-            .field("gid", &self.gid)
             .field("links_count", &self.links_count.get())
-            .field("blocks_lo", &self.blocks_lo.get())
-            .field("flags", &self.flags.get())
-            .field("version", &self.version)
-            .field("i_block", &self.i_block)
-            .field("i_generation", &self.i_generation)
-            .field("i_file_acl_lo", &self.i_file_acl_lo)
-            .field("i_size_high", &self.i_size_high)
-            .field("i_obso_faddr", &self.i_obso_faddr)
-            .field("l_i_blocks_high", &self.l_i_blocks_high)
-            .field("l_i_file_acl_high", &self.l_i_file_acl_high)
-            .field("l_i_uid_high", &self.l_i_uid_high)
-            .field("l_i_gid_high", &self.l_i_gid_high)
-            .field("l_i_checksum_lo", &self.l_i_checksum_lo)
-            .field("l_i_reserved", &self.l_i_reserved)
-            .field("i_extra_isize", &self.i_extra_isize)
-            .field("i_checksum_hi", &self.i_checksum_hi)
-            .field("i_ctime_extra", &self.i_ctime_extra)
-            .field("i_mtime_extra", &self.i_mtime_extra)
-            .field("i_atime_extra", &self.i_atime_extra)
-            .field("i_crtime", &self.i_crtime)
-            .field("i_crtime_extra", &self.i_crtime_extra)
-            .field("i_version_hi", &self.i_version_hi)
-            .field("i_projid", &self.i_projid)
+            .field("blocks", &self.blocks())
+            .field("flags", &self.flags())
+            .field("version", &self.version())
+            .field("block", &self.block)
+            .field("generation", &self.generation.get())
+            .field("file_acl", &self.file_acl())
+            .field("obso_faddr", &self.obso_faddr.get())
+            .field("checksum", &self.checksum())
+            .field("extra_isize", &self.extra_isize.get())
+            .field("crtime", &self.creation_time())
+            .field("projid", &self.projid.get())
             .finish()
     }
 }
