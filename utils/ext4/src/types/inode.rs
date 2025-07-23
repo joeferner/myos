@@ -8,7 +8,11 @@ use zerocopy::{
     little_endian::{U16, U32},
 };
 
-use crate::{source::Ext4Source, types::BlockIndex, utils::hi_low_to_date_time};
+use crate::{
+    source::Ext4Source,
+    types::{BlockIndex, INodeIndex},
+    utils::hi_low_to_date_time,
+};
 
 pub(crate) const INODE_SIZE: usize = core::mem::size_of::<INode>();
 const EXT4_N_BLOCKS: usize = 15;
@@ -69,10 +73,26 @@ impl INode {
     pub(crate) fn read<T: Ext4Source>(
         source: &T,
         inode_table_block_idx: &BlockIndex,
+        relative_inode_idx: &INodeIndex,
         block_size: u32,
+        inode_size: u16,
     ) -> Result<Self> {
         let mut buf = [0; INODE_SIZE];
-        let file_pos = inode_table_block_idx.to_file_pos(block_size);
+
+        #[cfg(test)]
+        println!(
+            "table 0x{:x} (size 0x{:x}) {}",
+            inode_table_block_idx.to_file_pos(block_size).0,
+            inode_size,
+            relative_inode_idx.0
+        );
+
+        let file_pos = inode_table_block_idx.to_file_pos(block_size)
+            + ((relative_inode_idx.0) as u64 * inode_size as u64);
+
+        #[cfg(test)]
+        println!("file_pos 0x{:x} (size 0x{:x})", file_pos.0, inode_size);
+
         source.read(&file_pos, &mut buf)?;
         let inode = INode::read_from_bytes(&buf).map_err(|err| {
             FileIoError::IoError(IoError::from_zerocopy_err(

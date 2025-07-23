@@ -41,7 +41,7 @@ impl<T: Ext4Source> Ext4<T> {
         let super_block = SuperBlock::read(&source)?;
 
         #[cfg(test)]
-        println!("{:?}", super_block);
+        println!("super_block {:?}", super_block);
 
         let mut file_pos = SUPER_BLOCK_POS + SUPER_BLOCK_SIZE;
         for _ in 0..super_block.block_group_descriptor_count() {
@@ -49,7 +49,7 @@ impl<T: Ext4Source> Ext4<T> {
             file_pos += BLOCK_GROUP_DESCRIPTOR_SIZE;
 
             #[cfg(test)]
-            println!("{:?}", bgd);
+            println!("bgd {:?}", bgd);
         }
 
         Ok(Self {
@@ -75,19 +75,21 @@ impl<T: Ext4Source> Ext4<T> {
             &bgd.block_bitmap(),
             self.super_block.block_size(),
         )?;
-        let relative_inode_idx = INodeIndex(inode_idx.0 % self.super_block.blocks_per_group());
+        let relative_inode_idx = INodeIndex::new(inode_idx.real_index() % self.super_block.blocks_per_group());
         if !bitmap.is_readable(relative_inode_idx) {
-            return Ok(None)
+            return Ok(None);
         }
 
         let inode = INode::read(
             &self.source,
-            &bgd.inode_table(),
+            &(bgd.inode_table()),
+            &relative_inode_idx,
             self.super_block.block_size(),
+            self.super_block.inode_size(),
         )?;
 
         #[cfg(test)]
-        println!("{:?}", inode);
+        println!("inode {:?}", inode);
 
         Ok(Some(inode))
     }

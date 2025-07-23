@@ -19,11 +19,6 @@ pub(crate) const SUPER_BLOCK_SIZE: usize = core::mem::size_of::<SuperBlock>();
 pub(crate) const SUPER_BLOCK_POS: FilePos = FilePos(0x400);
 pub(crate) const EXT4_MAGIC: u16 = 0xef53;
 
-// Reference
-//   https://blogs.oracle.com/linux/post/understanding-ext4-disk-layout-part-1
-//   https://thiscouldbebetter.wordpress.com/2021/10/23/creating-an-ext4-filesystem-image-file/
-//   https://docs.kernel.org/filesystems/ext4/
-
 #[repr(C, packed)]
 #[derive(Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
 pub(crate) struct SuperBlock {
@@ -99,7 +94,7 @@ pub(crate) struct SuperBlock {
     /// First non-reserved inode
     first_ino: U32,
     /// size of inode structure
-    inode_size: U16,
+    s_inode_size: U16,
     /// block group # of this Superblock
     block_group_nr: U16,
     /// compatible feature set
@@ -335,12 +330,11 @@ impl SuperBlock {
     }
 
     pub fn block_group_descriptor_count(&self) -> u32 {
-        self.blocks_count()
-            .div_ceil(self.blocks_per_group() as u64) as u32
+        self.blocks_count().div_ceil(self.blocks_per_group() as u64) as u32
     }
 
     pub fn get_bgd_file_pos_for_inode_index(&self, inode_idx: &INodeIndex) -> FilePos {
-        let bgd_idx = inode_idx.0 / self.blocks_per_group();
+        let bgd_idx = inode_idx.real_index() / self.blocks_per_group();
         SUPER_BLOCK_POS + SUPER_BLOCK_SIZE + (bgd_idx as u64 * BLOCK_GROUP_DESCRIPTOR_SIZE as u64)
     }
 
@@ -348,8 +342,12 @@ impl SuperBlock {
         1024 << self.log_block_size.get()
     }
 
-    pub fn blocks_per_group(&self)->u32 {
+    pub fn blocks_per_group(&self) -> u32 {
         self.s_blocks_per_group.get()
+    }
+
+    pub fn inode_size(&self) -> u16 {
+        self.s_inode_size.get()
     }
 }
 
@@ -382,7 +380,7 @@ impl Debug for SuperBlock {
             .field("def_resuid", &self.def_resuid)
             .field("def_resgid", &self.def_resgid.get())
             .field("first_ino", &self.first_ino.get())
-            .field("inode_size", &self.inode_size.get())
+            .field("inode_size", &self.inode_size())
             .field("block_group_nr", &self.block_group_nr.get())
             .field("feature_compat", &self.feature_compat.get())
             .field("feature_incompat", &self.feature_incompat.get())
