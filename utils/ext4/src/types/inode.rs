@@ -91,20 +91,63 @@ bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct INodeFileFlags: u32 {
         /// This file requires secure deletion
-        const EXT4_SECRM_FL = 0x0001;
+        const SECRM = 0x0001;
         /// This file should be preserved, should undeletion be desired
-        const EXT4_UNRM_FL = 0x0002;
+        const UNRM = 0x0002;
         /// File is compressed
-        const EXT4_COMPR_FL = 0x0004;
+        const COMPR = 0x0004;
         /// All writes to the file must be synchronous
-        const EXT4_SYNC_FL = 0x0008;
+        const SYNC = 0x0008;
         /// File is immutable
-        const EXT4_IMMUTABLE_FL = 0x0010;
+        const IMMUTABLE = 0x0010;
         /// File can only be appended
-        const EXT4_APPEND_FL = 0x0020;
-
-        /// Inode uses extents
-        const EXT4_EXTENTS_FL = 0x80000;
+        const APPEND = 0x0020;
+        /// The dump(1) utility should not dump this file ().
+        const NODUMP = 0x40;
+        /// Do not update access time ().
+        const NOATIME = 0x80;
+        /// Dirty compressed file (). (not used)
+        const DIRTY = 0x100;
+        /// File has one or more compressed clusters (). (not used)
+        const COMPRBLK = 0x200;
+        /// Do not compress file (). (not used)
+        const NOCOMPR = 0x400;
+        /// Encrypted inode (). This bit value previously was EXT4_ECOMPR_FL (compression error), which was never used.
+        const ENCRYPT = 0x800;
+        /// Directory has hashed indexes ().
+        const INDEX = 0x1000;
+        /// AFS magic directory ().
+        const IMAGIC = 0x2000;
+        /// File data must always be written through the journal ().
+        const JOURNAL_DATA = 0x4000;
+        /// File tail should not be merged (). (not used by ext4)
+        const NOTAIL = 0x8000;
+        /// All directory entry data should be written synchronously (see dirsync) ().
+        const DIRSYNC = 0x10000;
+        /// Top of directory hierarchy ().
+        const TOPDIR = 0x20000;
+        /// This is a huge file ().
+        const HUGE_FILE = 0x40000;
+        /// Inode uses extents ().
+        const EXTENTS = 0x80000;
+        /// Verity protected file ().
+        const VERITY = 0x100000;
+        /// Inode stores a large extended attribute value in its data blocks ().
+        const EA_INODE = 0x200000;
+        /// This file has blocks allocated past EOF (). (deprecated)
+        const EOFBLOCKS = 0x400000;
+        /// Inode is a snapshot (). (not in mainline)
+        const SNAPFILE = 0x01000000;
+        /// Snapshot is being deleted (). (not in mainline)
+        const SNAPFILE_DELETED = 0x04000000;
+        /// Snapshot shrink has completed (). (not in mainline)
+        const SNAPFILE_SHRUNK = 0x08000000;
+        /// Inode has inline data ().
+        const INLINE_DATA = 0x10000000;
+        /// Create children with the same project ID ().
+        const PROJINHERIT = 0x20000000;
+        /// Reserved for ext4 library ().
+        const RESERVED = 0x80000000;
     }
 }
 
