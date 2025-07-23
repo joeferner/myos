@@ -10,13 +10,17 @@
     clippy::cast_possible_truncation
 )]
 
-use file_io::{FileIoError, FilePos, Result};
+use file_io::{FileIoError, Result};
 
 use crate::{
     directory::Directory,
     source::Ext4Source,
     types::{
-        block_group_descriptor::{BlockGroupDescriptor, BLOCK_GROUP_DESCRIPTOR_SIZE}, inode::INode, super_block::{self, SuperBlock, SUPER_BLOCK_POS, SUPER_BLOCK_SIZE}, INodeIndex
+        INodeIndex,
+        bitmap::Bitmap,
+        block_group_descriptor::{BLOCK_GROUP_DESCRIPTOR_SIZE, BlockGroupDescriptor},
+        inode::INode,
+        super_block::{SUPER_BLOCK_POS, SUPER_BLOCK_SIZE, SuperBlock},
     },
 };
 
@@ -24,6 +28,8 @@ mod directory;
 mod source;
 mod types;
 mod utils;
+
+pub const MAX_BLOCK_SIZE: usize = 0x10000;
 
 pub struct Ext4<T: Ext4Source> {
     source: T,
@@ -61,14 +67,34 @@ impl<T: Ext4Source> Ext4<T> {
         }
     }
 
-    pub fn read_inode(&self, inode_idx: &INodeIndex) -> Result<Option<INode>> {
-        let bgd = self.read_bgd_for_inode_index(&inode_idx);
-        todo!();
+    /// returns None if the given inode is not filled/readable
+    fn read_inode(&self, inode_idx: &INodeIndex) -> Result<Option<INode>> {
+        let bgd = self.read_bgd_for_inode_index(&inode_idx)?;
+        let bitmap = Bitmap::read(
+            &self.source,
+            &bgd.block_bitmap(),
+            self.super_block.block_size(),
+        )?;
+        let relative_inode_idx = INodeIndex(inode_idx.0 % self.super_block.blocks_per_group());
+        if !bitmap.is_readable(relative_inode_idx) {
+            return Ok(None)
+        }
+
+        let inode = INode::read(
+            &self.source,
+            &bgd.inode_table(),
+            self.super_block.block_size(),
+        )?;
+
+        #[cfg(test)]
+        println!("{:?}", inode);
+
+        Ok(Some(inode))
     }
-    
-    fn read_bgd_for_inode_index<>(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {
+
+    fn read_bgd_for_inode_index(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {
         let bgd_file_pos = self.super_block.get_bgd_file_pos_for_inode_index(inode_idx);
-        todo!();
+        BlockGroupDescriptor::read(&self.source, &bgd_file_pos)
     }
 }
 

@@ -27,6 +27,14 @@ impl core::ops::Add for FilePos {
     }
 }
 
+impl core::ops::Add<u64> for FilePos {
+    type Output = FilePos;
+
+    fn add(self, rhs: u64) -> Self::Output {
+        FilePos(self.0 + rhs)
+    }
+}
+
 impl core::ops::Add<usize> for FilePos {
     type Output = FilePos;
 

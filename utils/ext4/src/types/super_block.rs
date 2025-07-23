@@ -10,7 +10,9 @@ use zerocopy::{
 };
 
 use crate::{
-    source::Ext4Source, types::INodeIndex, utils::{hi_low_to_date_time, u64_from_hi_lo}
+    source::Ext4Source,
+    types::{INodeIndex, block_group_descriptor::BLOCK_GROUP_DESCRIPTOR_SIZE},
+    utils::{hi_low_to_date_time, u64_from_hi_lo},
 };
 
 pub(crate) const SUPER_BLOCK_SIZE: usize = core::mem::size_of::<SuperBlock>();
@@ -45,7 +47,7 @@ pub(crate) struct SuperBlock {
     log_cluster_size: U32,
     /*20*/
     /// # Blocks per group
-    blocks_per_group: U32,
+    s_blocks_per_group: U32,
     /// # Clusters per group
     clusters_per_group: U32,
     /// # Inodes per group
@@ -333,11 +335,21 @@ impl SuperBlock {
     }
 
     pub fn block_group_descriptor_count(&self) -> u32 {
-        self.blocks_count().div_ceil(self.blocks_per_group.get() as u64) as u32
+        self.blocks_count()
+            .div_ceil(self.blocks_per_group() as u64) as u32
     }
-    
+
     pub fn get_bgd_file_pos_for_inode_index(&self, inode_idx: &INodeIndex) -> FilePos {
-        todo!()
+        let bgd_idx = inode_idx.0 / self.blocks_per_group();
+        SUPER_BLOCK_POS + SUPER_BLOCK_SIZE + (bgd_idx as u64 * BLOCK_GROUP_DESCRIPTOR_SIZE as u64)
+    }
+
+    pub fn block_size(&self) -> u32 {
+        1024 << self.log_block_size.get()
+    }
+
+    pub fn blocks_per_group(&self)->u32 {
+        self.s_blocks_per_group.get()
     }
 }
 
@@ -352,7 +364,7 @@ impl Debug for SuperBlock {
             .field("first_data_block", &self.first_data_block.get())
             .field("log_block_size", &self.log_block_size.get())
             .field("log_cluster_size", &self.log_cluster_size.get())
-            .field("blocks_per_group", &self.blocks_per_group.get())
+            .field("blocks_per_group", &self.blocks_per_group())
             .field("clusters_per_group", &self.clusters_per_group.get())
             .field("inodes_per_group", &self.inodes_per_group.get())
             .field("mount_time", &self.mount_time())
