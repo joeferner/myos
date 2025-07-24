@@ -33,8 +33,7 @@ pub(crate) struct DirEntry2 {
     pub inode: INodeIndex,
     pub file_type: DirEntryFileType,
     pub record_length: usize,
-    name_len: usize,
-    name_buf: [u8; EXT4_NAME_LEN],
+    name: heapless::String<EXT4_NAME_LEN>,
 }
 
 impl DirEntry2 {
@@ -65,30 +64,22 @@ impl DirEntry2 {
         let partial_name_buf = name_buf
             .get_mut(0..dir_entry_header.name_len as usize)
             .ok_or(FileIoError::BufferTooSmall)?;
-        source.read(
-            inode,
-            file_pos + DIR_ENTRY_2_HEADER_SIZE,
-            partial_name_buf,
-        )?;
+        source.read(inode, file_pos + DIR_ENTRY_2_HEADER_SIZE, partial_name_buf)?;
 
-        let name_len = dir_entry_header.name_len as usize;
+        let name_vec = heapless::Vec::from_slice(partial_name_buf).unwrap();
+        let name = heapless::String::from_utf8(name_vec)
+            .map_err(|_| FileIoError::Other("string encoding error"))?;
 
         Ok(Self {
             inode: INodeIndex(dir_entry_header.inode.get()),
             file_type,
             record_length: dir_entry_header.rec_len.get() as usize,
-            name_len,
-            name_buf,
+            name,
         })
     }
 
-    pub fn name(&self) -> Result<&str> {
-        // verified to work in new
-        let partial_name_buf = self
-            .name_buf
-            .get(0..self.name_len)
-            .ok_or(FileIoError::BufferTooSmall)?;
-        str::from_utf8(partial_name_buf).map_err(|_| FileIoError::Other("string encoding error"))
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 }
 

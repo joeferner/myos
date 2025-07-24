@@ -12,6 +12,7 @@ spin = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 bitflags = { workspace = true }
+heapless = { workspace = true }
 
 [dev-dependencies]
 io = { path = "../../api/io", features = ["std"] }

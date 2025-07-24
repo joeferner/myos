@@ -74,7 +74,7 @@ impl DirectoryEntry {
         Self { dir_entry }
     }
 
-    pub fn name(&self) -> Result<&str> {
+    pub fn name(&self) -> &str {
         self.dir_entry.name()
     }
 }

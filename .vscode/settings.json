@@ -3,6 +3,7 @@
         "bitflags",
         "byteorder",
         "chrono",
+        "heapless",
         "inodes",
         "myos",
         "ramdisk",

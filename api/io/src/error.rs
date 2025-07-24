@@ -9,7 +9,7 @@ pub enum IoError {
     #[cfg(feature = "std")]
     StdIoError(std::io::Error),
     #[cfg(not(feature = "std"))]
-    ReadError,
+    ReadError(&'static str),
     #[cfg(feature = "std")]
     ReadError(String),
     WriteError,

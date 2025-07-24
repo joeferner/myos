@@ -117,7 +117,7 @@ mod tests {
 
         let root = ext4.root_dir().unwrap();
         for entry in root.iter(&ext4).unwrap() {
-            println!("{}", entry.unwrap().name().unwrap());
+            println!("{}", entry.unwrap().name());
         }
     }
 }
