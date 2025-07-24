@@ -53,19 +53,10 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
         }
 
         loop {
-            let mut buf = [0; DIR_ENTRY_2_SIZE];
-            if let Err(err) = self.fs.read(&self.inode, &self.offset, &mut buf) {
-                return Some(Err(err));
-            }
-            self.offset += buf.len();
-
-            let dir_entry = match DirEntry2::read_from_bytes(&buf) {
+            let dir_entry = match DirEntry2::read(&self.fs, &self.offset) {
                 Ok(dir_entry) => dir_entry,
                 Err(err) => {
-                    return Some(Err(FileIoError::IoError(IoError::from_zerocopy_err(
-                        "failed reading dir entry",
-                        err,
-                    ))));
+                    return Some(Err(err));
                 }
             };
 

@@ -25,12 +25,28 @@ pub(crate) struct DirEntry2 {
 
     /// File type code, see ftype table below
     i_file_type: u8,
-
-    /// file name
-    i_name: [u8; EXT4_NAME_LEN],
+    // file name [u8; EXT4_NAME_LEN]
 }
 
 impl DirEntry2 {
+    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: &FilePos) -> Result<Self> {
+        let mut buf = [0; DIR_ENTRY_2_SIZE];
+        if let Err(err) = self.fs.read(&self.inode, &file_pos, &mut buf) {
+            return Some(Err(err));
+        }
+        self.offset += buf.len();
+
+        let dir_entry = match DirEntry2::read_from_bytes(&buf) {
+            Ok(dir_entry) => dir_entry,
+            Err(err) => {
+                return Some(Err(FileIoError::IoError(IoError::from_zerocopy_err(
+                    "failed reading dir entry",
+                    err,
+                ))));
+            }
+        };
+    }
+
     pub fn inode(&self) -> INodeIndex {
         INodeIndex(self.i_inode.get())
     }
