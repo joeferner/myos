@@ -17,11 +17,8 @@ use crate::{
     directory::Directory,
     source::Ext4Source,
     types::{
-        INodeIndex,
-        bitmap::Bitmap,
-        block_group_descriptor::{BLOCK_GROUP_DESCRIPTOR_SIZE, BlockGroupDescriptor},
-        inode::INode,
-        super_block::{SUPER_BLOCK_POS, SUPER_BLOCK_SIZE, SuperBlock},
+        INodeIndex, bitmap::Bitmap, block_group_descriptor::BlockGroupDescriptor, inode::INode,
+        super_block::SuperBlock,
     },
 };
 
@@ -43,15 +40,6 @@ impl<T: Ext4Source> Ext4<T> {
 
         #[cfg(test)]
         println!("super_block {:?}", super_block);
-
-        let mut file_pos = SUPER_BLOCK_POS + SUPER_BLOCK_SIZE;
-        for _ in 0..super_block.block_group_descriptor_count() {
-            let bgd = BlockGroupDescriptor::read(&source, &file_pos)?;
-            file_pos += BLOCK_GROUP_DESCRIPTOR_SIZE;
-
-            #[cfg(test)]
-            println!("bgd {:?}", bgd);
-        }
 
         Ok(Self {
             source,
@@ -97,21 +85,11 @@ impl<T: Ext4Source> Ext4<T> {
     }
 
     pub(crate) fn read(&self, inode: &INode, offset: &FilePos, buf: &mut [u8]) -> Result<()> {
-        #[cfg(test)]
-        println!(
-            "offset.0 >= inode.size().0 {} >= {}",
-            offset.0,
-            inode.size().0
-        );
-
         if offset.0 >= inode.size().0 {
             return Err(FileIoError::IoError(IoError::EndOfFile));
         }
 
         let data_pos = inode.get_data_pos(offset, self.super_block.block_size())?;
-
-        #[cfg(test)]
-        println!("data_pos {data_pos:?}");
 
         let file_pos = data_pos
             .block_idx

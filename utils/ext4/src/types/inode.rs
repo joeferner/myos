@@ -204,9 +204,6 @@ impl INode {
             return Err(FileIoError::Other("invalid extent header magic"));
         }
 
-        #[cfg(test)]
-        println!("extent_header {:?} {:?}", extent_header, rest);
-
         let inode_block_idx = 0;
 
         if extent_header.depth == 0 {
@@ -219,9 +216,6 @@ impl INode {
                     err,
                 ))
             })?;
-
-            #[cfg(test)]
-            println!("extent {:?}", extent);
 
             let extent_len = extent.len.get() as u64 * block_size as u64;
             if offset.0 < extent_len {

@@ -1,15 +1,9 @@
-use file_io::{FileIoError, FilePos, Result};
-use io::IoError;
-use zerocopy::FromBytes;
+use file_io::{FilePos, Result};
 
 use crate::{
     Ext4,
     source::Ext4Source,
-    types::{
-        INodeIndex,
-        directory_entry::{DIR_ENTRY_2_SIZE, DirEntry2},
-        inode::INode,
-    },
+    types::{INodeIndex, directory_entry::DirEntry2, inode::INode},
 };
 
 pub struct Directory {
@@ -53,14 +47,15 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
         }
 
         loop {
-            let dir_entry = match DirEntry2::read(&self.fs, &self.offset) {
+            let dir_entry = match DirEntry2::read(&self.fs, &self.inode, &self.offset) {
                 Ok(dir_entry) => dir_entry,
                 Err(err) => {
                     return Some(Err(err));
                 }
             };
+            self.offset += dir_entry.record_length;
 
-            if !dir_entry.inode().is_valid() {
+            if !dir_entry.inode.is_valid() {
                 continue;
             }
 

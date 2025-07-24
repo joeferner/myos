@@ -1,21 +1,22 @@
 use core::fmt::Debug;
 
-use file_io::{FileIoError, Result};
+use file_io::{FileIoError, FilePos, Result};
+use io::IoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes,
     little_endian::{U16, U32},
 };
 
-use crate::types::INodeIndex;
+use crate::{Ext4, source::Ext4Source, types::INodeIndex, types::inode::INode};
 
-pub(crate) const DIR_ENTRY_2_SIZE: usize = core::mem::size_of::<DirEntry2>();
+const DIR_ENTRY_2_HEADER_SIZE: usize = core::mem::size_of::<DirEntry2Header>();
 pub(crate) const EXT4_NAME_LEN: usize = 255;
 
 #[repr(C, packed)]
 #[derive(Clone, IntoBytes, FromBytes, Immutable, KnownLayout)]
-pub(crate) struct DirEntry2 {
+pub(crate) struct DirEntry2Header {
     /// Number of the inode that this directory entry points to
-    i_inode: U32,
+    inode: U32,
 
     /// Length of this directory entry.
     rec_len: U16,
@@ -24,40 +25,61 @@ pub(crate) struct DirEntry2 {
     name_len: u8,
 
     /// File type code, see ftype table below
-    i_file_type: u8,
+    file_type: u8,
     // file name [u8; EXT4_NAME_LEN]
 }
 
-impl DirEntry2 {
-    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: &FilePos) -> Result<Self> {
-        let mut buf = [0; DIR_ENTRY_2_SIZE];
-        if let Err(err) = self.fs.read(&self.inode, &file_pos, &mut buf) {
-            return Some(Err(err));
-        }
-        self.offset += buf.len();
+pub(crate) struct DirEntry2 {
+    pub inode: INodeIndex,
+    pub file_type: DirEntryFileType,
+    pub record_length: usize,
+    name_len: usize,
+    name_buf: [u8; EXT4_NAME_LEN],
+}
 
-        let dir_entry = match DirEntry2::read_from_bytes(&buf) {
+impl DirEntry2 {
+    pub(crate) fn read<T: Ext4Source>(
+        source: &Ext4<T>,
+        inode: &INode,
+        file_pos: &FilePos,
+    ) -> Result<Self> {
+        let mut buf = [0; DIR_ENTRY_2_HEADER_SIZE];
+        source.read(&inode, &file_pos, &mut buf)?;
+
+        let dir_entry_header = match DirEntry2Header::read_from_bytes(&buf) {
             Ok(dir_entry) => dir_entry,
             Err(err) => {
-                return Some(Err(FileIoError::IoError(IoError::from_zerocopy_err(
+                return Err(FileIoError::IoError(IoError::from_zerocopy_err(
                     "failed reading dir entry",
                     err,
-                ))));
+                )));
             }
         };
+
+        let file_type = {
+            let buf = [dir_entry_header.file_type];
+            DirEntryFileType::try_read_from_bytes(&buf).unwrap_or(DirEntryFileType::Unknown)
+        };
+
+        let mut name_buf = [0; EXT4_NAME_LEN];
+        let mut partial_name_buf = &mut name_buf[0..dir_entry_header.name_len as usize];
+        source.read(
+            &inode,
+            &(*file_pos + DIR_ENTRY_2_HEADER_SIZE),
+            &mut partial_name_buf,
+        )?;
+
+        Ok(Self {
+            inode: INodeIndex(dir_entry_header.inode.get()),
+            file_type,
+            record_length: dir_entry_header.rec_len.get() as usize,
+            name_len: dir_entry_header.name_len as usize,
+            name_buf,
+        })
     }
 
-    pub fn inode(&self) -> INodeIndex {
-        INodeIndex(self.i_inode.get())
-    }
-
-    pub fn file_type(&self) -> DirEntryFileType {
-        let buf = [self.i_file_type];
-        DirEntryFileType::try_read_from_bytes(&buf).unwrap_or(DirEntryFileType::Unknown)
-    }
-
-    pub fn name<'a>(&'a self) -> Result<&'a str> {
-        str::from_utf8(&self.i_name[0..self.name_len as usize])
+    pub fn name(&self) -> Result<&str> {
+        str::from_utf8(&self.name_buf[0..self.name_len])
             .map_err(|_| FileIoError::Other("utf encoding error"))
     }
 }
@@ -65,10 +87,9 @@ impl DirEntry2 {
 impl Debug for DirEntry2 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("DirEntry2")
-            .field("inode", &self.inode())
-            .field("rec_len", &self.rec_len.get())
-            .field("name_len", &self.name_len)
-            .field("file_type", &self.file_type())
+            .field("inode", &self.inode)
+            .field("file_type", &self.file_type)
+            .field("record_length", &self.record_length)
             .field("name", &self.name())
             .finish()
     }
