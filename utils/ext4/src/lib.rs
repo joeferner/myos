@@ -38,9 +38,6 @@ impl<T: Ext4Source> Ext4<T> {
     pub fn new(source: T) -> Result<Self> {
         let super_block = SuperBlock::read(&source)?;
 
-        #[cfg(test)]
-        println!("super_block {:?}", super_block);
-
         Ok(Self {
             source,
             super_block,
@@ -48,7 +45,7 @@ impl<T: Ext4Source> Ext4<T> {
     }
 
     pub fn root_dir(&self) -> Result<Directory> {
-        let inode = self.read_inode(&INodeIndex::root())?;
+        let inode = self.read_inode(INodeIndex::root())?;
         if let Some(inode) = inode {
             Ok(Directory::new(INodeIndex::root(), inode))
         } else {
@@ -57,11 +54,11 @@ impl<T: Ext4Source> Ext4<T> {
     }
 
     /// returns None if the given inode is not filled/readable
-    fn read_inode(&self, inode_idx: &INodeIndex) -> Result<Option<INode>> {
-        let bgd = self.read_bgd_for_inode_index(&inode_idx)?;
+    fn read_inode(&self, inode_idx: INodeIndex) -> Result<Option<INode>> {
+        let bgd = self.read_bgd_for_inode_index(inode_idx)?;
         let bitmap = Bitmap::read(
             &self.source,
-            &bgd.block_bitmap(),
+            bgd.block_bitmap_block_index(),
             self.super_block.block_size(),
         )?;
         let relative_inode_idx =
@@ -72,19 +69,16 @@ impl<T: Ext4Source> Ext4<T> {
 
         let inode = INode::read(
             &self.source,
-            &(bgd.inode_table()),
-            &relative_inode_idx,
+            bgd.inode_table_block_index(),
+            relative_inode_idx,
             self.super_block.block_size(),
             self.super_block.inode_size(),
         )?;
 
-        #[cfg(test)]
-        println!("inode {:?}", inode);
-
         Ok(Some(inode))
     }
 
-    pub(crate) fn read(&self, inode: &INode, offset: &FilePos, buf: &mut [u8]) -> Result<()> {
+    pub(crate) fn read(&self, inode: &INode, offset: FilePos, buf: &mut [u8]) -> Result<()> {
         if offset.0 >= inode.size().0 {
             return Err(FileIoError::IoError(IoError::EndOfFile));
         }
@@ -98,12 +92,12 @@ impl<T: Ext4Source> Ext4<T> {
         if buf.len() as u64 > data_pos.extent_length - data_pos.offset {
             todo!();
         }
-        self.source.read(&file_pos, buf)
+        self.source.read(file_pos, buf)
     }
 
-    fn read_bgd_for_inode_index(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {
+    fn read_bgd_for_inode_index(&self, inode_idx: INodeIndex) -> Result<BlockGroupDescriptor> {
         let bgd_file_pos = self.super_block.get_bgd_file_pos_for_inode_index(inode_idx);
-        BlockGroupDescriptor::read(&self.source, &bgd_file_pos)
+        BlockGroupDescriptor::read(&self.source, bgd_file_pos)
     }
 }
 
@@ -122,10 +116,8 @@ mod tests {
         let ext4 = Ext4::new(source).unwrap();
 
         let root = ext4.root_dir().unwrap();
-        println!("------");
         for entry in root.iter(&ext4).unwrap() {
-            println!("{:?}", entry);
-            println!("------");
+            println!("{}", entry.unwrap().name().unwrap());
         }
     }
 }

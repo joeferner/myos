@@ -18,7 +18,7 @@ pub(crate) fn hi_low_to_date_time(hi: u32, lo: u32) -> Result<Option<NaiveDateTi
     } else {
         Ok(Some(
             DateTime::from_timestamp_millis(ms)
-                .ok_or_else(|| FileIoError::Other("invalid time"))?
+                .ok_or(FileIoError::Other("invalid time"))?
                 .naive_utc(),
         ))
     }

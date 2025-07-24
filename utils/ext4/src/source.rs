@@ -1,7 +1,7 @@
 use file_io::{FilePos, Result};
 
 pub trait Ext4Source {
-    fn read(&self, file_pos: &FilePos, buf: &mut [u8]) -> Result<()>;
+    fn read(&self, file_pos: FilePos, buf: &mut [u8]) -> Result<()>;
 }
 
 #[cfg(any(test, feature = "std"))]
@@ -20,7 +20,7 @@ impl FileExt4Source {
 
 #[cfg(any(test, feature = "std"))]
 impl Ext4Source for FileExt4Source {
-    fn read(&self, file_pos: &FilePos, buf: &mut [u8]) -> Result<()> {
+    fn read(&self, file_pos: FilePos, buf: &mut [u8]) -> Result<()> {
         use std::io::{Read, Seek, SeekFrom};
 
         use file_io::FileIoError;

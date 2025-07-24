@@ -63,7 +63,7 @@ pub(crate) struct BlockGroupDescriptor {
 }
 
 impl BlockGroupDescriptor {
-    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: &FilePos) -> Result<Self> {
+    pub(crate) fn read<T: Ext4Source>(source: &T, file_pos: FilePos) -> Result<Self> {
         let mut buf = [0; BLOCK_GROUP_DESCRIPTOR_SIZE];
         source.read(file_pos, &mut buf)?;
         let bgd = BlockGroupDescriptor::read_from_bytes(&buf).map_err(|err| {
@@ -76,15 +76,15 @@ impl BlockGroupDescriptor {
         Ok(bgd)
     }
 
-    pub fn block_bitmap(&self) -> BlockIndex {
+    pub fn block_bitmap_block_index(&self) -> BlockIndex {
         BlockIndex(u64_from_hi_lo(self.block_bitmap_hi.get(), self.block_bitmap_lo.get()))
     }
 
-    pub fn inode_bitmap(&self) -> BlockIndex {
+    pub fn inode_bitmap_block_index(&self) -> BlockIndex {
         BlockIndex(u64_from_hi_lo(self.inode_bitmap_hi.get(), self.inode_bitmap_lo.get()))
     }
 
-    pub fn inode_table(&self) -> BlockIndex {
+    pub fn inode_table_block_index(&self) -> BlockIndex {
         BlockIndex(u64_from_hi_lo(self.inode_table_hi.get(), self.inode_table_lo.get()))
     }
 
@@ -132,9 +132,9 @@ impl BlockGroupDescriptor {
 impl Debug for BlockGroupDescriptor {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("BlockGroupDescriptor")
-            .field("block_bitmap", &self.block_bitmap())
-            .field("inode_bitmap", &self.inode_bitmap())
-            .field("inode_table", &self.inode_table())
+            .field("block_bitmap", &self.block_bitmap_block_index())
+            .field("inode_bitmap", &self.inode_bitmap_block_index())
+            .field("inode_table", &self.inode_table_block_index())
             .field("free_blocks_count", &self.free_blocks_count())
             .field("free_inodes_count", &self.free_inodes_count())
             .field("used_dirs_count", &self.used_dirs_count())

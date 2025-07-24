@@ -41,10 +41,10 @@ impl DirEntry2 {
     pub(crate) fn read<T: Ext4Source>(
         source: &Ext4<T>,
         inode: &INode,
-        file_pos: &FilePos,
+        file_pos: FilePos,
     ) -> Result<Self> {
         let mut buf = [0; DIR_ENTRY_2_HEADER_SIZE];
-        source.read(&inode, &file_pos, &mut buf)?;
+        source.read(inode, file_pos, &mut buf)?;
 
         let dir_entry_header = match DirEntry2Header::read_from_bytes(&buf) {
             Ok(dir_entry) => dir_entry,
@@ -62,25 +62,33 @@ impl DirEntry2 {
         };
 
         let mut name_buf = [0; EXT4_NAME_LEN];
-        let mut partial_name_buf = &mut name_buf[0..dir_entry_header.name_len as usize];
+        let partial_name_buf = name_buf
+            .get_mut(0..dir_entry_header.name_len as usize)
+            .ok_or(FileIoError::BufferTooSmall)?;
         source.read(
-            &inode,
-            &(*file_pos + DIR_ENTRY_2_HEADER_SIZE),
-            &mut partial_name_buf,
+            inode,
+            file_pos + DIR_ENTRY_2_HEADER_SIZE,
+            partial_name_buf,
         )?;
+
+        let name_len = dir_entry_header.name_len as usize;
 
         Ok(Self {
             inode: INodeIndex(dir_entry_header.inode.get()),
             file_type,
             record_length: dir_entry_header.rec_len.get() as usize,
-            name_len: dir_entry_header.name_len as usize,
+            name_len,
             name_buf,
         })
     }
 
     pub fn name(&self) -> Result<&str> {
-        str::from_utf8(&self.name_buf[0..self.name_len])
-            .map_err(|_| FileIoError::Other("utf encoding error"))
+        // verified to work in new
+        let partial_name_buf = self
+            .name_buf
+            .get(0..self.name_len)
+            .ok_or(FileIoError::BufferTooSmall)?;
+        str::from_utf8(partial_name_buf).map_err(|_| FileIoError::Other("string encoding error"))
     }
 }
 

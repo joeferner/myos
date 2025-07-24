@@ -16,12 +16,12 @@ pub(crate) struct Bitmap {
 impl Bitmap {
     pub(crate) fn read<T: Ext4Source>(
         source: &T,
-        block_bitmap_block_idx: &BlockIndex,
+        block_bitmap_block_idx: BlockIndex,
         block_size: u32,
     ) -> Result<Bitmap> {
         let mut block: [u8; MAX_BLOCK_SIZE] = [0; MAX_BLOCK_SIZE];
         let file_pos = block_bitmap_block_idx.to_file_pos(block_size);
-        source.read(&file_pos, &mut block)?;
+        source.read(file_pos, &mut block)?;
         Ok(Bitmap { block_size, block })
     }
 
@@ -31,7 +31,7 @@ impl Bitmap {
             return false;
         }
         let bit = relative_inode_idx.0 % 8;
-        let b = self.block[idx as usize];
+        let b = self.block.get(idx as usize).unwrap_or(&0);
         (b >> bit) & 1 == 1
     }
 }

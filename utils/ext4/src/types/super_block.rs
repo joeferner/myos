@@ -257,7 +257,7 @@ pub(crate) struct SuperBlock {
 impl SuperBlock {
     pub(crate) fn read<T: Ext4Source>(source: &T) -> Result<Self> {
         let mut buf = [0; SUPER_BLOCK_SIZE];
-        source.read(&SUPER_BLOCK_POS, &mut buf)?;
+        source.read(SUPER_BLOCK_POS, &mut buf)?;
         let super_block = SuperBlock::read_from_bytes(&buf).map_err(|err| {
             FileIoError::IoError(IoError::from_zerocopy_err(
                 "failed to read super block from bytes",
@@ -330,10 +330,11 @@ impl SuperBlock {
     }
 
     pub fn block_group_descriptor_count(&self) -> u32 {
-        self.blocks_count().div_ceil(self.blocks_per_group() as u64) as u32
+        let block_count = self.blocks_count().div_ceil(self.blocks_per_group() as u64);
+        u32::try_from(block_count).unwrap_or(0)
     }
 
-    pub fn get_bgd_file_pos_for_inode_index(&self, inode_idx: &INodeIndex) -> FilePos {
+    pub fn get_bgd_file_pos_for_inode_index(&self, inode_idx: INodeIndex) -> FilePos {
         let bgd_idx = inode_idx.real_index() / self.blocks_per_group();
         SUPER_BLOCK_POS + SUPER_BLOCK_SIZE + (bgd_idx as u64 * BLOCK_GROUP_DESCRIPTOR_SIZE as u64)
     }

@@ -42,12 +42,12 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
     type Item = Result<DirectoryEntry>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.offset.0 >= self.size.0 {
-            return None;
-        }
-
         loop {
-            let dir_entry = match DirEntry2::read(&self.fs, &self.inode, &self.offset) {
+            if self.offset.0 >= self.size.0 {
+                return None;
+            }
+
+            let dir_entry = match DirEntry2::read(self.fs, self.inode, self.offset) {
                 Ok(dir_entry) => dir_entry,
                 Err(err) => {
                     return Some(Err(err));
@@ -58,9 +58,6 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
             if !dir_entry.inode.is_valid() {
                 continue;
             }
-
-            #[cfg(test)]
-            println!("dir_entry {dir_entry:?}");
 
             return Some(Ok(DirectoryEntry::new(dir_entry)));
         }
@@ -75,5 +72,9 @@ pub struct DirectoryEntry {
 impl DirectoryEntry {
     fn new(dir_entry: DirEntry2) -> Self {
         Self { dir_entry }
+    }
+
+    pub fn name(&self) -> Result<&str> {
+        self.dir_entry.name()
     }
 }

@@ -157,28 +157,17 @@ bitflags! {
 impl INode {
     pub(crate) fn read<T: Ext4Source>(
         source: &T,
-        inode_table_block_idx: &BlockIndex,
-        relative_inode_idx: &INodeIndex,
+        inode_table_block_idx: BlockIndex,
+        relative_inode_idx:INodeIndex,
         block_size: u32,
         inode_size: u16,
     ) -> Result<Self> {
         let mut buf = [0; INODE_SIZE];
 
-        #[cfg(test)]
-        println!(
-            "table 0x{:x} (size 0x{:x}) {}",
-            inode_table_block_idx.to_file_pos(block_size).0,
-            inode_size,
-            relative_inode_idx.0
-        );
-
         let file_pos = inode_table_block_idx.to_file_pos(block_size)
             + ((relative_inode_idx.0) as u64 * inode_size as u64);
 
-        #[cfg(test)]
-        println!("file_pos 0x{:x} (size 0x{:x})", file_pos.0, inode_size);
-
-        source.read(&file_pos, &mut buf)?;
+        source.read(file_pos, &mut buf)?;
         let inode = INode::read_from_bytes(&buf).map_err(|err| {
             FileIoError::IoError(IoError::from_zerocopy_err(
                 "failed to read inode from bytes",
@@ -189,7 +178,7 @@ impl INode {
         Ok(inode)
     }
 
-    pub fn get_data_pos(&self, offset: &FilePos, block_size: u32) -> Result<DataPos> {
+    pub fn get_data_pos(&self, offset: FilePos, block_size: u32) -> Result<DataPos> {
         if (self.flags() & INodeFileFlags::EXTENTS) != INodeFileFlags::EXTENTS {
             todo!();
         }
@@ -210,7 +199,7 @@ impl INode {
             let rest = rest
                 .get(inode_block_idx as usize * EXTENT_SIZE..)
                 .ok_or(FileIoError::Other("index out of bounds"))?;
-            let (extent, _) = Extent::read_from_prefix(&rest).map_err(|err| {
+            let (extent, _) = Extent::read_from_prefix(rest).map_err(|err| {
                 FileIoError::IoError(IoError::from_zerocopy_err(
                     "failed reading header block index",
                     err,

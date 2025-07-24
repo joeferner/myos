@@ -11,7 +11,7 @@ pub(crate) mod super_block;
 pub(crate) struct BlockIndex(pub u64);
 
 impl BlockIndex {
-    pub(crate) fn to_file_pos(&self, block_size: u32) -> FilePos {
+    pub(crate) fn to_file_pos(self, block_size: u32) -> FilePos {
         FilePos(self.0 * block_size as u64)
     }
 }
