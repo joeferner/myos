@@ -11,6 +11,7 @@
 )]
 
 use file_io::{FileIoError, FilePos, Result};
+use io::IoError;
 
 use crate::{
     directory::Directory,
@@ -96,13 +97,30 @@ impl<T: Ext4Source> Ext4<T> {
     }
 
     pub(crate) fn read(&self, inode: &INode, offset: &FilePos, buf: &mut [u8]) -> Result<()> {
-        let (data_block_idx, block_count) = inode.get_data_extent(offset, self.super_block.block_size())?;
+        #[cfg(test)]
+        println!(
+            "offset.0 >= inode.size().0 {} >= {}",
+            offset.0,
+            inode.size().0
+        );
 
-         #[cfg(test)]
-        println!("data_block_idx {data_block_idx:?}, block_count {block_count}");
-        // self.source.read(&file_pos, buf)?;
+        if offset.0 >= inode.size().0 {
+            return Err(FileIoError::IoError(IoError::EndOfFile));
+        }
 
-        todo!();
+        let data_pos = inode.get_data_pos(offset, self.super_block.block_size())?;
+
+        #[cfg(test)]
+        println!("data_pos {data_pos:?}");
+
+        let file_pos = data_pos
+            .block_idx
+            .to_file_pos(self.super_block.block_size())
+            + data_pos.offset;
+        if buf.len() as u64 > data_pos.extent_length - data_pos.offset {
+            todo!();
+        }
+        self.source.read(&file_pos, buf)
     }
 
     fn read_bgd_for_inode_index(&self, inode_idx: &INodeIndex) -> Result<BlockGroupDescriptor> {
@@ -126,8 +144,10 @@ mod tests {
         let ext4 = Ext4::new(source).unwrap();
 
         let root = ext4.root_dir().unwrap();
+        println!("------");
         for entry in root.iter(&ext4).unwrap() {
             println!("{:?}", entry);
+            println!("------");
         }
     }
 }

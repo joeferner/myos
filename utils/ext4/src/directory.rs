@@ -1,9 +1,15 @@
-use file_io::{FilePos, Result};
+use file_io::{FileIoError, FilePos, Result};
+use io::IoError;
+use zerocopy::FromBytes;
 
 use crate::{
     Ext4,
     source::Ext4Source,
-    types::{INodeIndex, directory_entry::DIR_ENTRY_2_SIZE, inode::INode},
+    types::{
+        INodeIndex,
+        directory_entry::{DIR_ENTRY_2_SIZE, DirEntry2},
+        inode::INode,
+    },
 };
 
 pub struct Directory {
@@ -13,7 +19,10 @@ pub struct Directory {
 
 impl Directory {
     pub(crate) fn new(inode_idx: INodeIndex, inode: INode) -> Self {
-        Self { _inode_idx: inode_idx, inode }
+        Self {
+            _inode_idx: inode_idx,
+            inode,
+        }
     }
 }
 
@@ -43,17 +52,42 @@ impl<'a, T: Ext4Source> Iterator for DirectoryIterator<'a, T> {
             return None;
         }
 
-        let mut buf = [0; DIR_ENTRY_2_SIZE];
-        let read_result = self.fs.read(&self.inode, &self.offset, &mut buf);
+        loop {
+            let mut buf = [0; DIR_ENTRY_2_SIZE];
+            if let Err(err) = self.fs.read(&self.inode, &self.offset, &mut buf) {
+                return Some(Err(err));
+            }
+            self.offset += buf.len();
 
-        #[cfg(test)]
-        println!("read_result {:?} {:?}", read_result, buf);
+            let dir_entry = match DirEntry2::read_from_bytes(&buf) {
+                Ok(dir_entry) => dir_entry,
+                Err(err) => {
+                    return Some(Err(FileIoError::IoError(IoError::from_zerocopy_err(
+                        "failed reading dir entry",
+                        err,
+                    ))));
+                }
+            };
 
-        self.offset += buf.len();
+            if !dir_entry.inode().is_valid() {
+                continue;
+            }
 
-        todo!();
+            #[cfg(test)]
+            println!("dir_entry {dir_entry:?}");
+
+            return Some(Ok(DirectoryEntry::new(dir_entry)));
+        }
     }
 }
 
 #[derive(Debug)]
-pub struct DirectoryEntry {}
+pub struct DirectoryEntry {
+    dir_entry: DirEntry2,
+}
+
+impl DirectoryEntry {
+    fn new(dir_entry: DirEntry2) -> Self {
+        Self { dir_entry }
+    }
+}

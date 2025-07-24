@@ -189,13 +189,10 @@ impl INode {
         Ok(inode)
     }
 
-    pub fn get_data_extent(&self, offset: &FilePos, block_size: u32) -> Result<(BlockIndex, u16)> {
+    pub fn get_data_pos(&self, offset: &FilePos, block_size: u32) -> Result<DataPos> {
         if (self.flags() & INodeFileFlags::EXTENTS) != INodeFileFlags::EXTENTS {
             todo!();
         }
-
-        let inode_block_idx = offset.0 / block_size as u64;
-        let block_offset = (offset.0 % block_size as u64) as u32;
 
         let (extent_header, rest) = ExtentHeader::read_from_prefix(&self.block).map_err(|err| {
             FileIoError::IoError(IoError::from_zerocopy_err(
@@ -209,6 +206,8 @@ impl INode {
 
         #[cfg(test)]
         println!("extent_header {:?} {:?}", extent_header, rest);
+
+        let inode_block_idx = 0;
 
         if extent_header.depth == 0 {
             let rest = rest
@@ -224,7 +223,16 @@ impl INode {
             #[cfg(test)]
             println!("extent {:?}", extent);
 
-            return Ok((BlockIndex(extent.start()), extent.len.get()));
+            let extent_len = extent.len.get() as u64 * block_size as u64;
+            if offset.0 < extent_len {
+                return Ok(DataPos {
+                    block_idx: BlockIndex(extent.start()),
+                    extent_length: extent_len,
+                    offset: offset.0,
+                });
+            }
+
+            todo!("go to next block")
         }
 
         todo!("not in header");
@@ -312,4 +320,14 @@ impl Debug for INode {
             .field("projid", &self.projid.get())
             .finish()
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct DataPos {
+    /// index of the first block where the data is located
+    pub block_idx: BlockIndex,
+    /// the length of the extent in bytes
+    pub extent_length: u64,
+    /// offset into the extent where the data is located
+    pub offset: u64,
 }

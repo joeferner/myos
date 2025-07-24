@@ -2,10 +2,10 @@ use file_io::FilePos;
 
 pub(crate) mod bitmap;
 pub(crate) mod block_group_descriptor;
-pub(crate) mod inode;
-pub(crate) mod super_block;
 pub(crate) mod directory_entry;
 pub(crate) mod extent;
+pub(crate) mod inode;
+pub(crate) mod super_block;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct BlockIndex(pub u64);
@@ -31,5 +31,9 @@ impl INodeIndex {
     /// inodes start at 1. 0 is used as a sentinel value to indicate null or no inode.
     pub(crate) fn real_index(&self) -> u32 {
         self.0 - 1
+    }
+
+    pub(crate) fn is_valid(&self) -> bool {
+        self.0 != 0
     }
 }

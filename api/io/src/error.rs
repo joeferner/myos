@@ -13,6 +13,7 @@ pub enum IoError {
     #[cfg(feature = "std")]
     ReadError(String),
     WriteError,
+    EndOfFile,
     #[cfg(not(feature = "std"))]
     Other(&'static str),
     #[cfg(feature = "std")]
