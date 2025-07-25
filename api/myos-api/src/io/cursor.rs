@@ -1,4 +1,5 @@
-use crate::{Read, Seek, SeekFrom, Write, error::Result};
+use crate::io::{Read, Result, Seek, SeekFrom, Write};
+
 
 pub struct Cursor<'a> {
     data: &'a mut [u8],

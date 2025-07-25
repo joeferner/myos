@@ -1,4 +1,4 @@
-use file_io::{FilePos, Result};
+use myos_api::filesystem::{FilePos, Result};
 
 use crate::{
     Ext4,

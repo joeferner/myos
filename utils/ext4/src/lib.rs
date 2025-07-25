@@ -10,8 +10,8 @@
     clippy::cast_possible_truncation
 )]
 
-use file_io::{FileIoError, FilePos, Result};
-use io::IoError;
+use myos_api::filesystem::{FileIoError, FilePos, Result};
+use myos_api::io::IoError;
 
 use crate::{
     directory::Directory,

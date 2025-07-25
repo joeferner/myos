@@ -1,19 +1,21 @@
 use core::num::TryFromIntError;
 
-#[cfg(feature = "std")]
-use zerocopy::KnownLayout;
 use zerocopy::SizeError;
 
 #[derive(Debug)]
 pub enum IoError {
     #[cfg(feature = "std")]
     StdIoError(std::io::Error),
+
     #[cfg(not(feature = "std"))]
     ReadError(&'static str),
     #[cfg(feature = "std")]
     ReadError(String),
+
     WriteError,
+
     EndOfFile,
+    
     #[cfg(not(feature = "std"))]
     Other(&'static str),
     #[cfg(feature = "std")]
@@ -36,7 +38,7 @@ impl IoError {
     ) -> Self
     where
         Src: core::ops::Deref,
-        Dst: KnownLayout,
+        Dst: zerocopy::KnownLayout,
     {
         IoError::Other(format!("{}: {}", message, err))
     }

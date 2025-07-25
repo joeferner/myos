@@ -1,15 +1,3 @@
-#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
-#![allow(clippy::new_without_default)]
-#![deny(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    clippy::unimplemented,
-    clippy::unreachable,
-    clippy::indexing_slicing,
-    clippy::cast_possible_truncation
-)]
-
 mod error;
 
 use core::fmt::Debug;
@@ -63,20 +51,6 @@ impl core::ops::AddAssign<u16> for FilePos {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SignedFilePos(pub i64);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TimeSeconds(pub u64);
-
-impl TimeSeconds {
-    #[cfg(feature = "std")]
-    pub fn now() -> Self {
-        let time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| Error::TimeError)?
-            .as_secs();
-        TimeSeconds(time)
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Mode(pub u16);

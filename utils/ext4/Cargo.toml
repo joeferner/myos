@@ -5,17 +5,16 @@ version.workspace = true
 
 [dependencies]
 zerocopy = { workspace = true }
-myos-api = { path = "../../api/myos-api" }
-io = { path = "../../api/io" }
-file-io = { path = "../../api/file-io" }
 spin = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 bitflags = { workspace = true }
 heapless = { workspace = true }
+myos-api = { path = "../../api/myos-api", default-features = false, optional = true }
 
 [dev-dependencies]
-io = { path = "../../api/io", features = ["std"] }
+myos-api = { path = "../../api/myos-api", features = ["std"] }
 
 [features]
-std = []
+default = ["myos-api"]
+std = ["myos-api?/std"]

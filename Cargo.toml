@@ -6,8 +6,6 @@ default-run = "myos"
 
 [workspace]
 members = [
-    "api/file-io",
-    "api/io",
     "api/myos-api",
     "common",
     "drivers/framebuffer",

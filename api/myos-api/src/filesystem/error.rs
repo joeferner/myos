@@ -1,4 +1,4 @@
-use io::IoError;
+use crate::io::IoError;
 
 #[derive(Debug)]
 pub enum FileIoError {

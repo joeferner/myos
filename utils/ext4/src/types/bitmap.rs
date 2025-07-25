@@ -1,4 +1,4 @@
-use file_io::Result;
+use myos_api::filesystem::Result;
 
 use crate::{
     MAX_BLOCK_SIZE,

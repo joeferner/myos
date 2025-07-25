@@ -1,4 +1,4 @@
-use file_io::{FilePos, Result};
+use myos_api::filesystem::{FilePos, Result};
 
 pub trait Ext4Source {
     fn read(&self, file_pos: FilePos, buf: &mut [u8]) -> Result<()>;
@@ -23,8 +23,8 @@ impl Ext4Source for FileExt4Source {
     fn read(&self, file_pos: FilePos, buf: &mut [u8]) -> Result<()> {
         use std::io::{Read, Seek, SeekFrom};
 
-        use file_io::FileIoError;
-        use io::IoError;
+        use myos_api::filesystem::FileIoError;
+        use myos_api::io::IoError;
 
         let mut file = self.file.lock();
         file.seek(SeekFrom::Start(file_pos.0))

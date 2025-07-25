@@ -1,8 +1,8 @@
 use core::{ffi::CStr, fmt::Debug};
 
 use chrono::NaiveDateTime;
-use file_io::{FileIoError, FilePos, Result};
-use io::IoError;
+use myos_api::filesystem::{FileIoError, FilePos, Result};
+use myos_api::io::IoError;
 use uuid::Uuid;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,

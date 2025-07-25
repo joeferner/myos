@@ -1,6 +1,6 @@
 use core::fmt::Debug;
-use file_io::{FileIoError, FilePos, Result};
-use io::IoError;
+use myos_api::filesystem::{FileIoError, FilePos, Result};
+use myos_api::io::IoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,
     little_endian::{U16, U32},

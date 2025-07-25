@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime};
-use file_io::{FileIoError, Result};
+use myos_api::filesystem::{FileIoError, Result};
 
 pub(crate) fn u64_from_hi_lo(hi: u32, lo: u32) -> u64 {
     ((hi as u64) << 4) | lo as u64

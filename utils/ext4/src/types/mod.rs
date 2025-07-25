@@ -1,4 +1,4 @@
-use file_io::FilePos;
+use myos_api::filesystem::FilePos;
 
 pub(crate) mod bitmap;
 pub(crate) mod block_group_descriptor;
