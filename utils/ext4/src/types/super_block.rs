@@ -2,7 +2,7 @@ use core::{ffi::CStr, fmt::Debug};
 
 use chrono::NaiveDateTime;
 use myos_api::filesystem::{FileIoError, FilePos, Result};
-use myos_api::io::IoError;
+use nostdio::NoStdIoError;
 use uuid::Uuid;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,
@@ -259,7 +259,7 @@ impl SuperBlock {
         let mut buf = [0; SUPER_BLOCK_SIZE];
         source.read(SUPER_BLOCK_POS, &mut buf)?;
         let super_block = SuperBlock::read_from_bytes(&buf).map_err(|err| {
-            FileIoError::IoError(IoError::from_zerocopy_err(
+            FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                 "failed to read super block from bytes",
                 err,
             ))

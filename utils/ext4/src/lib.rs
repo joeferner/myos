@@ -11,7 +11,7 @@
 )]
 
 use myos_api::filesystem::{FileIoError, FilePos, Result};
-use myos_api::io::IoError;
+use nostdio::NoStdIoError;
 
 use crate::{
     directory::Directory,
@@ -80,7 +80,7 @@ impl<T: Ext4Source> Ext4<T> {
 
     pub(crate) fn read(&self, inode: &INode, offset: FilePos, buf: &mut [u8]) -> Result<()> {
         if offset.0 >= inode.size().0 {
-            return Err(FileIoError::IoError(IoError::EndOfFile));
+            return Err(FileIoError::IoError(NoStdIoError::EndOfFile));
         }
 
         let data_pos = inode.get_data_pos(offset, self.super_block.block_size())?;

@@ -1,8 +1,8 @@
-use crate::io::IoError;
+use nostdio::NoStdIoError;
 
 #[derive(Debug)]
 pub enum FileIoError {
-    IoError(IoError),
+    IoError(NoStdIoError),
     FilenameTooLong,
     BufferTooSmall,
     FileAlreadyExists,
@@ -10,8 +10,8 @@ pub enum FileIoError {
     Other(&'static str),
 }
 
-impl From<IoError> for FileIoError {
-    fn from(err: IoError) -> Self {
+impl From<NoStdIoError> for FileIoError {
+    fn from(err: NoStdIoError) -> Self {
         FileIoError::IoError(err)
     }
 }

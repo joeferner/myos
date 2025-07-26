@@ -1,8 +1,30 @@
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
+#![allow(clippy::new_without_default)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unimplemented,
+    clippy::unreachable,
+    clippy::indexing_slicing,
+    clippy::cast_possible_truncation
+)]
+
 mod cursor;
-mod error;
+mod offset;
 
 pub use cursor::Cursor;
-pub use error::{IoError, Result};
+pub use offset::{OffsetRead, OffsetWrite};
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum NoStdIoError {
+    InvalidInput,
+    StorageFull,
+    UnexpectedEof,
+    Other,
+}
+
+pub type Result<T> = core::result::Result<T, NoStdIoError>;
 
 /// Enumeration of possible methods to seek within an I/O object.
 ///

@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 use myos_api::filesystem::{FileIoError, FilePos, Result};
-use myos_api::io::IoError;
+use nostdio::NoStdIoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,
     little_endian::{U16, U32},
@@ -67,7 +67,7 @@ impl BlockGroupDescriptor {
         let mut buf = [0; BLOCK_GROUP_DESCRIPTOR_SIZE];
         source.read(file_pos, &mut buf)?;
         let bgd = BlockGroupDescriptor::read_from_bytes(&buf).map_err(|err| {
-            FileIoError::IoError(IoError::from_zerocopy_err(
+            FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                 "failed to read block group descriptor from bytes",
                 err,
             ))

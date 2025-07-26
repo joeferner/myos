@@ -3,7 +3,7 @@ use core::fmt::Debug;
 use bitflags::bitflags;
 use chrono::NaiveDateTime;
 use myos_api::filesystem::{FileIoError, FilePos, Result};
-use myos_api::io::IoError;
+use nostdio::NoStdIoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout,
     little_endian::{U16, U32},
@@ -169,7 +169,7 @@ impl INode {
 
         source.read(file_pos, &mut buf)?;
         let inode = INode::read_from_bytes(&buf).map_err(|err| {
-            FileIoError::IoError(IoError::from_zerocopy_err(
+            FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                 "failed to read inode from bytes",
                 err,
             ))
@@ -184,7 +184,7 @@ impl INode {
         }
 
         let (extent_header, rest) = ExtentHeader::read_from_prefix(&self.block).map_err(|err| {
-            FileIoError::IoError(IoError::from_zerocopy_err(
+            FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                 "failed reading extent header",
                 err,
             ))
@@ -200,7 +200,7 @@ impl INode {
                 .get(inode_block_idx as usize * EXTENT_SIZE..)
                 .ok_or(FileIoError::Other("index out of bounds"))?;
             let (extent, _) = Extent::read_from_prefix(rest).map_err(|err| {
-                FileIoError::IoError(IoError::from_zerocopy_err(
+                FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                     "failed reading header block index",
                     err,
                 ))

@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use myos_api::filesystem::{FileIoError, FilePos, Result};
-use myos_api::io::IoError;
+use nostdio::NoStdIoError;
 use zerocopy::{
     FromBytes, Immutable, IntoBytes, KnownLayout, TryFromBytes,
     little_endian::{U16, U32},
@@ -48,7 +48,7 @@ impl DirEntry2 {
         let dir_entry_header = match DirEntry2Header::read_from_bytes(&buf) {
             Ok(dir_entry) => dir_entry,
             Err(err) => {
-                return Err(FileIoError::IoError(IoError::from_zerocopy_err(
+                return Err(FileIoError::IoError(NoStdIoError::from_zerocopy_err(
                     "failed reading dir entry",
                     err,
                 )));

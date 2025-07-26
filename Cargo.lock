@@ -278,6 +278,7 @@ dependencies = [
  "chrono",
  "heapless",
  "myos-api",
+ "nostdio",
  "spin",
  "uuid",
  "zerocopy",
@@ -564,8 +565,13 @@ dependencies = [
 name = "myos-api"
 version = "0.1.0"
 dependencies = [
+ "nostdio",
  "zerocopy",
 ]
+
+[[package]]
+name = "nostdio"
+version = "0.1.0"
 
 [[package]]
 name = "num-traits"

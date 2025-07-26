@@ -24,16 +24,16 @@ impl Ext4Source for FileExt4Source {
         use std::io::{Read, Seek, SeekFrom};
 
         use myos_api::filesystem::FileIoError;
-        use myos_api::io::IoError;
+        use nostdio::NoStdIoError;
 
         let mut file = self.file.lock();
         file.seek(SeekFrom::Start(file_pos.0))
-            .map_err(|err| FileIoError::IoError(IoError::StdIoError(err)))?;
+            .map_err(|err| FileIoError::IoError(NoStdIoError::StdIoError(err)))?;
         let read = file
             .read(buf)
-            .map_err(|err| FileIoError::IoError(IoError::StdIoError(err)))?;
+            .map_err(|err| FileIoError::IoError(NoStdIoError::StdIoError(err)))?;
         if read != buf.len() {
-            return Err(FileIoError::IoError(IoError::create_partial_read_error(
+            return Err(FileIoError::IoError(NoStdIoError::create_partial_read_error(
                 file_pos.0,
                 read,
                 buf.len(),

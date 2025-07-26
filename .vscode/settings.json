@@ -6,6 +6,7 @@
         "heapless",
         "inodes",
         "myos",
+        "nostdio",
         "ramdisk",
         "repr",
         "Uninit",

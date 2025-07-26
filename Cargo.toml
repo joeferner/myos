@@ -15,7 +15,7 @@ members = [
     "utils/allocator",
     "utils/ansi-escape",
     "utils/pc-screen-font",
-    "utils/ext4",
+    "utils/ext4", "utils/nostdio",
 ]
 
 [workspace.package]
